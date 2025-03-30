@@ -10,7 +10,7 @@ typedef struct {
     sem_t printDone; // Se usa para indicarle al master que la vista terminó de imprimir
     sem_t masterSem; // Mutex para evitar inanición del master al acceder al estado
     sem_t stateSem; // Mutex para el estado del juego
-    sem_t readingSem; // Mutex para la siguiente variable
+    sem_t currReadingSem; // Mutex para la siguiente variable
     unsigned int currReading; // Cantidad de jugadores leyendo el estado
     } gameSync;
     

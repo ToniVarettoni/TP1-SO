@@ -59,36 +59,40 @@ int main(){
         sem_wait(&syncState->masterSem); // espero al master
 
 
-        sem_wait(&syncState->readingSem);
+        sem_wait(&syncState->currReadingSem);
         syncState->currReading++;
-        sem_post(&syncState->readingSem);
+        sem_post(&syncState->currReadingSem);
         if (syncState->currReading == 1)
         {
             sem_wait(&syncState->stateSem);
         }
-
+        
         
         if (gameState->players[id].canMove)
         {
+            sem_wait(&syncState->currReadingSem);
             syncState->currReading--;
-            sem_post(&syncState->stateSem);
+            sem_post(&syncState->currReadingSem);
             sem_post(&syncState->masterSem);
             break;
         }
 
-        sem_wait(&syncState->readingSem);
+
+        unsigned char move = (unsigned char) rand()%8;
+        write(1, &move , sizeof(move));
+
+        sem_wait(&syncState->currReadingSem);
         syncState->currReading--;
+        sem_post(&syncState->currReadingSem);
         if (syncState->currReading == 0)
         {
             sem_post(&syncState->stateSem);
         }
         
-        sem_post(&syncState->readingSem);
-        sem_post(&syncState->masterSem);
 
-        unsigned char move = (unsigned char) rand()%8;
-        write(1, &move , 1);
-        
+        sem_post(&syncState->masterSem);
+        usleep(500);
+
     }
     
 
