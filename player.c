@@ -10,6 +10,7 @@
 
 int main(){
 
+    srand(time(NULL));
 
     int gameState_fd = shm_open("/game_state", O_RDWR, 0666);
     if (gameState_fd == -1) {
@@ -61,26 +62,33 @@ int main(){
         sem_wait(&syncState->readingSem);
         syncState->currReading++;
         sem_post(&syncState->readingSem);
+        if (syncState->currReading == 1)
+        {
+            sem_wait(&syncState->stateSem);
+        }
+
         
         if (gameState->players[id].canMove)
         {
             syncState->currReading--;
-            sem_post(&syncState->readingSem);
+            sem_post(&syncState->stateSem);
             sem_post(&syncState->masterSem);
             break;
         }
-        
+
         sem_wait(&syncState->readingSem);
         syncState->currReading--;
-        sem_post(&syncState->readingSem);
+        if (syncState->currReading == 0)
+        {
+            sem_post(&syncState->stateSem);
+        }
         
-
-        sem_wait(&syncState->stateSem); // espero mi turno para escribir
-        unsigned char move = rand()%8;
-        write(1, &move , 1);
-        sem_post(&syncState->stateSem);
-
+        sem_post(&syncState->readingSem);
         sem_post(&syncState->masterSem);
+
+        unsigned char move = (unsigned char) rand()%8;
+        write(1, &move , 1);
+        
     }
     
 

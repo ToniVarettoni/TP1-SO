@@ -57,11 +57,11 @@ int main(int argc, char *argv[]){
             printf("\n");
         }
 
-        printf("Dirección de semáforo readyToPrint: %p\n", (syncState->readyToPrint));
-        printf("Dirección de semáforo masterSem: %p\n", (syncState->masterSem));
-        printf("Dirección de semáforo printDone: %p\n", (syncState->printDone));
-        printf("Dirección de semáforo readingSem: %p\n", (syncState->readingSem));
-        printf("Dirección de semáforo stateSem: %p\n", (syncState->stateSem));
+        printf("Dirección de semáforo readyToPrint: %p\n", &(syncState->readyToPrint));
+        printf("Dirección de semáforo masterSem: %p\n", &(syncState->masterSem));
+        printf("Dirección de semáforo printDone: %p\n", &(syncState->printDone));
+        printf("Dirección de semáforo readingSem: %p\n", &(syncState->readingSem));
+        printf("Dirección de semáforo stateSem: %p\n", &(syncState->stateSem));
 
         sem_wait(&syncState->readingSem);
         syncState->currReading--;
