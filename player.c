@@ -68,7 +68,7 @@ int main(){
         }
         
         
-        if (gameState->players[id].canMove)
+        if (gameState->players[id].cantMove)
         {
             sem_wait(&syncState->currReadingSem);
             syncState->currReading--;

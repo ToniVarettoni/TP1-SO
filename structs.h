@@ -22,7 +22,7 @@ typedef struct {
     unsigned int invalidMoves; // Cantidad de solicitudes de movimientos válidas realizadas
     unsigned short x, y; // Coordenadas x e y en el tablero
     pid_t pid; // Identificador de proceso
-    bool canMove; // Indica si el jugador tiene movimientos válidos disponibles
+    bool cantMove; // Indica si el jugador tiene movimientos válidos disponibles
 } playerState;
 
 typedef struct {
