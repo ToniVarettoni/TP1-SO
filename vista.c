@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 #include "structs.h"
 
 
@@ -40,9 +41,6 @@ int main(int argc, char *argv[]){
     {
 
         sem_wait(&syncState->readyToPrint);
-        sem_wait(&syncState->currReadingSem);
-        syncState->currReading++;
-        sem_post(&syncState->currReadingSem);
 
         printf("\033[H\033[J");
 
@@ -60,9 +58,9 @@ int main(int argc, char *argv[]){
         for (int i = 0; i < h; i++) {
             for (int j = 0; j < w; j++) {
                 if (gameState->map[i * w + j] <= 0) {
-                    printf("%d ", gameState->map[i * w + j]); 
+                    printf("%d\t", gameState->map[i * w + j]); 
                 } else {
-                    printf(".  ");
+                    printf(".\t");
                 }
             }
             printf("\n");
@@ -74,9 +72,6 @@ int main(int argc, char *argv[]){
         printf("Dirección de semáforo currReadingSem: %p\n", &(syncState->currReadingSem));
         printf("Dirección de semáforo stateSem: %p\n", &(syncState->stateSem));
 
-        sem_wait(&syncState->currReadingSem);
-        syncState->currReading--;
-        sem_post(&syncState->currReadingSem);
         sem_post(&syncState->printDone);
     }   
     return 0;

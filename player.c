@@ -5,7 +5,8 @@
 #include <stdio.h>
 #include <semaphore.h>
 #include "structs.h"
-
+#include <time.h>
+#include <unistd.h>
 
 
 int main(){
