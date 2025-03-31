@@ -93,10 +93,8 @@ int main(int argc, char * args[]){
             sem_post(&syncState->stateSem);
         }
         
-
         sem_post(&syncState->masterSem);
         usleep(500);
-
     }
     
 
