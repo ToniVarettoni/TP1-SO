@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 
-int main(char * args[]){
+int main(int argc, char * args[]){
 
     srand(time(NULL));
 
@@ -54,7 +54,6 @@ int main(char * args[]){
         
     }
     
-
     while (1)
     {
         sem_wait(&syncState->masterSem); // espero al master
@@ -74,6 +73,10 @@ int main(char * args[]){
             sem_wait(&syncState->currReadingSem);
             syncState->currReading--;
             sem_post(&syncState->currReadingSem);
+            if (syncState->currReading == 0)
+            {
+                sem_post(&syncState->stateSem);
+            }
             sem_post(&syncState->masterSem);
             break;
         }
