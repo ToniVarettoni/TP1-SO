@@ -5,7 +5,7 @@
 
 int main(int argc, char *argv[]){
 
-    int gameState_fd = shm_open("/game_state", O_RDWR, 0666);
+    int gameState_fd = shm_open("/game_state", O_RDONLY, 0666);
     if (gameState_fd == -1) {
         perror("Error abriendo la memoria compartida");
         exit(EXIT_FAILURE);
@@ -17,7 +17,7 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    GameState *gameState = (GameState *) mmap(NULL, sizeof(GameState), PROT_READ | PROT_WRITE, MAP_SHARED, gameState_fd, 0);
+    GameState *gameState = (GameState *) mmap(NULL, sizeof(GameState), PROT_READ, MAP_SHARED, gameState_fd, 0);
 
     if (gameState == MAP_FAILED) {
         perror("Error mapeando la memoria compartida");
@@ -65,13 +65,7 @@ int main(int argc, char *argv[]){
             }
             printf("\n");
         }
-
-        printf("Dirección de semáforo readyToPrint: %p\n", &(syncState->readyToPrint));
-        printf("Dirección de semáforo masterSem: %p\n", &(syncState->masterSem));
-        printf("Dirección de semáforo printDone: %p\n", &(syncState->printDone));
-        printf("Dirección de semáforo currReadingSem: %p\n", &(syncState->currReadingSem));
-        printf("Dirección de semáforo stateSem: %p\n", &(syncState->stateSem));
-
+        
         sem_post(&syncState->printDone);
     }   
     return 0;

@@ -9,26 +9,26 @@
 #include <unistd.h>
 
 
-int main(){
+int main(char * args[]){
 
     srand(time(NULL));
 
-    int gameState_fd = shm_open("/game_state", O_RDWR, 0666);
+    int gameState_fd = shm_open("/game_state", O_RDONLY, 0666);
     if (gameState_fd == -1) {
-        perror("Error abriendo la memoria compartida");
+        perror("Error abriendo la memoria compartida de state");
         exit(EXIT_FAILURE);
     }
 
     int sync_fd = shm_open("/game_sync", O_RDWR, 0666);
     if (sync_fd == -1) {
-        perror("Error abriendo la memoria compartida");
+        perror("Error abriendo la memoria compartida de sync");
         exit(EXIT_FAILURE);
     }
 
-    GameState *gameState = (GameState *) mmap(NULL, sizeof(GameState), PROT_READ | PROT_WRITE, MAP_SHARED, gameState_fd, 0);
+    GameState *gameState = (GameState *) mmap(NULL, sizeof(GameState), PROT_READ, MAP_SHARED, gameState_fd, 0);
 
     if (gameState == MAP_FAILED) {
-        perror("Error mapeando la memoria compartida");
+        perror("Error mapeando la memoria compartida de state");
         close(gameState_fd);
         exit(EXIT_FAILURE);
     }
@@ -36,7 +36,7 @@ int main(){
     gameSync *syncState = (gameSync *) mmap(NULL, sizeof(gameSync), PROT_READ | PROT_WRITE, MAP_SHARED, sync_fd, 0);
 
     if (syncState == MAP_FAILED) {
-        perror("Error mapeando la memoria compartida");
+        perror("Error mapeando la memoria compartida de sync");
         close(gameState_fd);
         exit(EXIT_FAILURE);
     }
