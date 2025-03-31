@@ -17,8 +17,8 @@ docker cp vista.c "$CONTAINER_NAME":"$CONTAINER_DIR"
 docker cp player.c "$CONTAINER_NAME":"$CONTAINER_DIR"
 
 # Ejecutar la compilación dentro del contenedor
-docker exec "$CONTAINER_NAME" bash -c "cd $CONTAINER_DIR && gcc -o vista vista.c"
-docker exec "$CONTAINER_NAME" bash -c "cd $CONTAINER_DIR && gcc -o player player.c"
+docker exec "$CONTAINER_NAME" bash -c "cd $CONTAINER_DIR && gcc -Wall -pedantic -o vista vista.c"
+docker exec "$CONTAINER_NAME" bash -c "cd $CONTAINER_DIR && gcc -Wall -pedantic -o player player.c"
 
 # Extraer los ejecutables compilados de vuelta a la máquina local
 docker cp "$CONTAINER_NAME":"$CONTAINER_DIR/vista" .
