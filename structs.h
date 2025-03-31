@@ -31,6 +31,6 @@ typedef struct {
     unsigned int playerAmount; // Cantidad de jugadores
     playerState players[9]; // Lista de jugadores
     bool isOver; // Indica si el juego se ha terminado
-    int map[]; // Punter o al comienzo del tablero. fila-0, fila-1, ..., fila-n-1
+    int map[]; // Puntero al comienzo del tablero. fila-0, fila-1, ..., fila-n-1
 } GameState;
         
