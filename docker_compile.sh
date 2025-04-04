@@ -26,3 +26,8 @@ docker cp "$CONTAINER_NAME":"$CONTAINER_DIR/player" .
 
 echo "Compilación completada. Ejecutables generados: ./vista y ./player"
 
+# Ejecutar ChompChamps con los argumentos pasados al script
+docker exec -it "$CONTAINER_NAME" bash -c "cd /root && ./ChompChamps $*"
+
+
+
