@@ -57,20 +57,24 @@ int main(int argc, char * args[]){
     }
 
     
-    
+    int currInvalidMoves = 0;
+    int currX = gameState->players[id].x;
+    int currY = gameState->players[id].y;
+    int firstMove = 1;
     while (1)
     {
         sem_wait(&syncState->masterSem); // espero al master
-    
+
+        sem_post(&syncState->masterSem);
+
 
         sem_wait(&syncState->currReadingSem);
-        syncState->currReading++;
-        sem_post(&syncState->currReadingSem);
-        if (syncState->currReading == 1)
+        if (syncState->currReading++ == 0)
         {
             sem_wait(&syncState->stateSem);
         }
-        
+        sem_post(&syncState->currReadingSem);
+
         
         
         if (gameState->players[id].cantMove)
@@ -86,42 +90,46 @@ int main(int argc, char * args[]){
             break;
         }
 
+
         int h = gameState->height;
         int w = gameState->width;
         int x = gameState->players[id].x;
         int y = gameState->players[id].y;
+        
         int max = 0;
         unsigned char move = 0;
-
-
-        for (int i = x - 1; i <= x + 1; i++)
+        
+        if (currInvalidMoves != gameState->players[id].invalidMoves || currX != x || currY != y || firstMove)
         {
-            for (int j = y - 1; j <= y + 1; j++)
+            firstMove = false;
+            currX = x;
+            currY = y; 
+            currInvalidMoves = gameState->players[id].invalidMoves;
+            for (int i = x - 1; i <= x + 1; i++)
             {
-                if (i >= 0 && j >= 0 && i < w && j < h){
-                    if (max < gameState->map[i + w*j])  //si la casilla corresponde a un jugador -> gameState->map[i + w*j] < 0 siempre
-                    {
-                        max = gameState->map[i + w*j];
-                        move = getDir(x, y, i, j);
+                for (int j = y - 1; j <= y + 1; j++)
+                {
+                    if (i >= 0 && j >= 0 && i < w && j < h){
+                        if (max < gameState->map[i + w*j])  //si la casilla corresponde a un jugador -> gameState->map[i + w*j] < 0 siempre
+                        {
+                            max = gameState->map[i + w*j];
+                            move = getDir(x, y, i, j);
+                        }
                     }
                 }
-            }
             
-        }
-        
-
-        write(1, &move, 1);
+            }
+            write(1, &move , sizeof(move));
+        }        
 
         sem_wait(&syncState->currReadingSem);
-        syncState->currReading--;
-        sem_post(&syncState->currReadingSem);
-        if (syncState->currReading == 0)
+        if (syncState->currReading-- == 1)
         {
             sem_post(&syncState->stateSem);
         }
+        sem_post(&syncState->currReadingSem);
         
-        sem_post(&syncState->masterSem);
-        usleep(500000);
+        
     }
     
 
@@ -160,3 +168,8 @@ unsigned char getDir(int x, int y, int i, int j){
 
 
 }
+
+
+
+
+
