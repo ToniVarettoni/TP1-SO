@@ -81,8 +81,9 @@ int main(int argc, char *argv[]) {
             }
             strcpy(view, argv[++i]);
         } else if (strcmp(argv[i], PLAYERS) == 0) {
-            for (i++; i < argc && argv[i][0] != '-'; i++){
-                strcpy(players[playerAmount++], argv[i]);
+            while(i + 1 < argc && argv[i + 1][0] != '-'){
+                strcpy(players[playerAmount++], argv[i + 1]);
+                i++;
             }
         }
     }
@@ -133,7 +134,10 @@ int main(int argc, char *argv[]) {
 
     setMap(gameState, seed);
 
-    initView(gameState, view);
+    if(view != NULL){
+        initView(gameState, view);
+    }
+
     for(gameState->playerAmount = 0; gameState->playerAmount < playerAmount; gameState->playerAmount++){
         strcpy(gameState->players[gameState->playerAmount].name, players[gameState->playerAmount]);
         playerPipes[gameState->playerAmount] = initPlayer(gameState, gameState->playerAmount);
@@ -145,17 +149,30 @@ int main(int argc, char *argv[]) {
     gameState->width = width;
 
     checkArguments(gameState); 
+    
+    while(1){
+        sem_post(&syncState->readyToPrint);
+        sem_wait(&syncState->printDone);
 
-    sem_post(&syncState->readyToPrint);
-    while(gameState->isOver){
+        get_moves();
 
+        sem_wait(&syncState->stateSem);
+        updateMoves();
+        sem_post(&syncState->stateSem);
     }
+
+}
+
+void get_moves(){
+    fd_set readfds;
+    int maxfd = 0;
+    unsigned char moves[MAX_PLAYERS];
 
 }
 
 
 void checkArguments(GameState * gameState){
-    if (gameState->height < 10 || gameState->width < 10){
+    if (gameState->height < DEF_HEIGHT || gameState->width < DEF_WIDTH){
         printf("Error: Minimal board dimensions: 10x10. Given %dx%d\n", gameState->height, gameState->width);
         exit(EXIT_FAILURE);
     }
@@ -189,7 +206,7 @@ void initView(GameState * gameState, char * view){
 
         char *args[] = {path, height, width, NULL};
         execve(path, args, NULL);
-        perror("execve");
+        perror("execve view");
         exit(EXIT_FAILURE);
     }
 }
@@ -224,7 +241,7 @@ int initPlayer(GameState * gameState, int i){
 
         char *args[] = {path, height, width, NULL };
         execve(path, args, NULL);
-        perror("execve");
+        perror("execve player");
         exit(EXIT_FAILURE);
     }   
 
