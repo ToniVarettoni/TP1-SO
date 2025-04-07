@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <semaphore.h>
 
+#define MAX_LENGTH_NAME 16
+#define MAX_PLAYERS 9
+
 typedef struct {
     sem_t readyToPrint; // Se usa para indicarle a la vista que hay cambios por imprimir
     sem_t printDone; // Se usa para indicarle al master que la vista terminó de imprimir
@@ -16,7 +19,7 @@ typedef struct {
     
 
 typedef struct {
-    char name[16]; // Nombre del jugador
+    char name[MAX_LENGTH_NAME]; // Nombre del jugador
     unsigned int score; // Puntaje
     unsigned int validMoves; // Cantidad de solicitudes de movimientos inválidas realizadas
     unsigned int invalidMoves; // Cantidad de solicitudes de movimientos válidas realizadas
@@ -29,7 +32,7 @@ typedef struct {
     unsigned short width; // Ancho del tablero
     unsigned short height; // Alto del tablero
     unsigned int playerAmount; // Cantidad de jugadores
-    playerState players[9]; // Lista de jugadores
+    playerState players[MAX_PLAYERS]; // Lista de jugadores
     bool isOver; // Indica si el juego se ha terminado
     int map[]; // Puntero al comienzo del tablero. fila-0, fila-1, ..., fila-n-1
 } GameState;
