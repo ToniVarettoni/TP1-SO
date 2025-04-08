@@ -6,6 +6,7 @@ docker run -v "${PWD}:/root" --privileged -ti agodio/itba-so-multi-platform:3.0
 
 valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --trace-children=yes ./master
 getopt
+lsof: lista las openfiles de un cierto programa
 
 void spawnPlayer(GameState * gameState, int index) {
     double centerX = gameState->width / 2.0;
