@@ -7,13 +7,7 @@
 #include <unistd.h>
 #include <time.h>
 
-#define SEED "-s"
-#define WIDTH "-w"
-#define HEIGHT "-h"
-#define DELAY "-d"
-#define TIMEOUT "-t"
-#define VIEW "-v"
-#define PLAYERS "-p"
+#define ARGUMENT_ERROR "Usage: ./master [-w width] [-h height] [-d delay] [-s seed] [-v view] [-t timeout] -p player1 player2 ..."
 
 #define DEF_WIDTH 10
 #define DEF_HEIGHT 10
@@ -29,6 +23,7 @@ int initPlayer(GameState * gameState, int i);
 void spawnPlayer(GameState * gameState, int i);
 void updateMap(GameState * gameState, int index);
 void setMap(GameState * gameState, unsigned int seed);
+void get_moves();
 
 int main(int argc, char *argv[]) {
 
@@ -38,52 +33,51 @@ int main(int argc, char *argv[]) {
     char players[MAX_PLAYERS][MAX_LENGTH_PATH];
     int playerAmount = 0;
     char view[MAX_LENGTH_PATH];
+    view[0] = '\0';
     unsigned int seed = time(NULL);
     unsigned int delay = DEF_DELAY;
     unsigned int timeout = DEF_TIMEOUT;
     int playerPipes[MAX_PLAYERS];
 
     for(int i = 0 ; i < argc ; i++) {
-        if(strcmp(argv[i], SEED) == 0) {
-            if(i+1 == argc || argv[i+1][0] == '-') {
-                perror("./master: option requires an argument -- 's'\nUsage: ./ChompChamps [-w width] [-h height] [-d delay] [-s seed] [-v view] [-t timeout] -p player1 player2 ...\n");
-                exit(EXIT_FAILURE);
-            }
-            seed = atoi(argv[i+1]);
-        } else if (strcmp(argv[i], WIDTH) == 0) {
-            if(i+1 == argc || argv[i+1][0] == '-') {
-                perror("./master: option requires an argument -- 'w'\nUsage: ./ChompChamps [-w width] [-h height] [-d delay] [-s seed] [-v view] [-t timeout] -p player1 player2 ...\n");
-                exit(EXIT_FAILURE);
-            }
-            width = atoi(argv[++i]);
-        } else if (strcmp(argv[i], HEIGHT) == 0) {
-            if(i+1 == argc || argv[i+1][0] == '-') {
-                perror("./master: option requires an argument -- 'h'\nUsage: ./ChompChamps [-w width] [-h height] [-d delay] [-s seed] [-v view] [-t timeout] -p player1 player2 ...\n");
-                exit(EXIT_FAILURE);
-            }
-            height = atoi(argv[++i]);
-        } else if (strcmp(argv[i], DELAY) == 0) {
-            if(i+1 == argc || argv[i+1][0] == '-') {
-                perror("./master: option requires an argument -- 'd'\nUsage: ./ChompChamps [-w width] [-h height] [-d delay] [-s seed] [-v view] [-t timeout] -p player1 player2 ...\n");
-                exit(EXIT_FAILURE);
-            }
-            delay = atoi(argv[i+1]);
-        } else if (strcmp(argv[i], TIMEOUT) == 0) {
-            if(i+1 == argc || argv[i+1][0] == '-') {
-                perror("./master: option requires an argument -- 't'\nUsage: ./ChompChamps [-w width] [-h height] [-d delay] [-s seed] [-v view] [-t timeout] -p player1 player2 ...\n");
-                exit(EXIT_FAILURE);
-            }
-            timeout = atoi(argv[i+1]);
-        } else if (strcmp(argv[i], VIEW) == 0) {
-            if(i+1 == argc || argv[i+1][0] == '-') {
-                perror("./master: option requires an argument -- 'v'\nUsage: ./ChompChamps [-w width] [-h height] [-d delay] [-s seed] [-v view] [-t timeout] -p player1 player2 ...\n");
-                exit(EXIT_FAILURE);
-            }
-            strcpy(view, argv[++i]);
-        } else if (strcmp(argv[i], PLAYERS) == 0) {
-            while(i + 1 < argc && argv[i + 1][0] != '-'){
-                strcpy(players[playerAmount++], argv[i + 1]);
-                i++;
+        if(argv[i][0] == '-'){
+            char c = argv[i][1];
+            if(c != '\0'){
+                if(c != 's' && c != 'w' && c != 'h' && c != 'd' && c != 't' && c != 'v' && c != 'p'){
+                    printf("./master: invalid option -- '%c'\n%s\n", c, ARGUMENT_ERROR);
+                    exit(EXIT_FAILURE);
+                }else{
+                    if(i+1 == argc || argv[i+1][0] == '-') {
+                        printf("./master: option requires an argument -- '%c'\n%s\n", c, ARGUMENT_ERROR);
+                        exit(EXIT_FAILURE);
+                    }
+                    switch(c){
+                        case 's': 
+                            seed = atoi(argv[++i]);
+                            break;
+                        case 'w':
+                            width = atoi(argv[++i]);
+                            break;
+                        case 'h':
+                            height = atoi(argv[++i]);
+                            break;
+                        case 'd':
+                            delay = atoi(argv[++i]);
+                            break;
+                        case 't':
+                            timeout = atoi(argv[++i]);
+                            break;
+                        case 'v':
+                            strcpy(view, argv[++i]);
+                            break;
+                        case 'p':
+                            while(i + 1 < argc && argv[i + 1][0] != '-'){
+                                strcpy(players[playerAmount++], argv[i + 1]);
+                                i++;
+                            }
+                            break;
+                    }
+                }
             }
         }
     }
@@ -134,7 +128,7 @@ int main(int argc, char *argv[]) {
 
     setMap(gameState, seed);
 
-    if(view != NULL){
+    if(view[0] != '\0'){
         initView(gameState, view);
     }
 
@@ -154,10 +148,10 @@ int main(int argc, char *argv[]) {
         sem_post(&syncState->readyToPrint);
         sem_wait(&syncState->printDone);
 
-        get_moves();
+        // get_moves();
 
         sem_wait(&syncState->stateSem);
-        updateMoves();
+        // updateMoves();
         sem_post(&syncState->stateSem);
     }
 
@@ -168,6 +162,18 @@ void get_moves(){
     int maxfd = 0;
     unsigned char moves[MAX_PLAYERS];
 
+    for(size_t i = 0; i < MAX_PLAYERS; i++){
+        unsigned char move;
+        read(playerPipes[i], &move, sizeof(move));
+        moves[i] = move;
+    }
+}
+
+void updateMoves(unsigned char moves[MAX_PLAYERS]){
+    for(size_t i = 0; i < MAX_PLAYERS; i++){
+        switch(moves[i])
+        gameState->player[i].x
+    }
 }
 
 

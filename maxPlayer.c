@@ -163,13 +163,4 @@ unsigned char getDir(int x, int y, int i, int j){
         return 2;
 
     return 3;
-    
-    
-
-
 }
-
-
-
-
-

@@ -56,7 +56,7 @@ int main(int argc, char * args[]){
     
     while (1)
     {
-        sem_wait(&syncState->masterSem); // espero al master
+        sem_wait(&syncState->masterSem);
 
 
         sem_wait(&syncState->currReadingSem);
