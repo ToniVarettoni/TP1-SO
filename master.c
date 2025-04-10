@@ -153,8 +153,13 @@ int main(int argc, char *argv[]) {
     int playingPlayers = gameState->playerAmount;
     
     while(playingPlayers > 0){
-        sem_post(&syncState->readyToPrint);
-        sem_wait(&syncState->printDone);
+
+        if (view[0] != '\0'){
+            sem_post(&syncState->readyToPrint);
+            sem_wait(&syncState->printDone);
+        }
+        
+        
 
         sem_wait(&syncState->masterSem);
         sem_wait(&syncState->stateSem);
@@ -387,61 +392,58 @@ bool processMove(GameState * gameState, int currentPlayer, unsigned char move){
 
     switch (move){
     case 0:
-        if (y > 0){
+        if (y > 0 && gameState->map[x + (y-1)*w] > 0){
             gameState->players[currentPlayer].y--;
             gameState->players[currentPlayer].validMoves++;
             return true;
         }break;
 
     case 1:
-        if (y > 0 && x < w-1){
+        if (y > 0 && x < w-1 && gameState->map[(x+1) + (y-1)*w] > 0){
             gameState->players[currentPlayer].x++;
             gameState->players[currentPlayer].y--;
             gameState->players[currentPlayer].validMoves++;
             return true;
         }break;
     case 2:
-        if (x < w-1){
+        if (x < w-1 && gameState->map[(x+1) + y*w] > 0){
             gameState->players[currentPlayer].x++;
             gameState->players[currentPlayer].validMoves++;
             return true;
         }break;
     case 3:
-        if (x < w-1 && y < h-1){
+        if (x < w-1 && y < h-1 && gameState->map[(x+1) + (y+1)*w] > 0){
             gameState->players[currentPlayer].x++;
             gameState->players[currentPlayer].y++;
             gameState->players[currentPlayer].validMoves++;
             return true;
         }break;
     case 4:
-        if (y < h-1){
+        if (y < h-1 && gameState->map[x + (y+1)*w] > 0){
             gameState->players[currentPlayer].y++;
             gameState->players[currentPlayer].validMoves++;
             return true;
         }break;
     case 5:
-        if (x > 0 && y < h-1){
+        if (x > 0 && y < h-1 && gameState->map[(x-1) + (y+1)*w] > 0){
             gameState->players[currentPlayer].x--;
             gameState->players[currentPlayer].y++;
             gameState->players[currentPlayer].validMoves++;
             return true;
         }break; 
     case 6: 
-        if (x > 0){
+        if (x > 0 && gameState->map[(x-1) + y*w] > 0){
             gameState->players[currentPlayer].x--;
             gameState->players[currentPlayer].validMoves++;
             return true;
         }break;
     case 7:
-        if (x > 0 && y > 0){
+        if (x > 0 && y > 0 && gameState->map[(x-1) + (y-1)*w] > 0){
             gameState->players[currentPlayer].x--;
             gameState->players[currentPlayer].y--;
             gameState->players[currentPlayer].validMoves++;
             return true;
         }break; 
-    default:
-        gameState->players[currentPlayer].invalidMoves++;
-        return false;
     }
     
     gameState->players[currentPlayer].invalidMoves++;
