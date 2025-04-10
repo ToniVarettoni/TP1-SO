@@ -16,6 +16,7 @@
 #define DEF_TIMEOUT 10
 #define MAX_LENGTH_NUM 10
 #define MAX_LENGTH_PATH 100
+#define MICRO_TO_MILI 1000
 
 
 void initView(GameState * gameState, char * view);
@@ -145,74 +146,86 @@ int main(int argc, char *argv[]) {
 
     gameState->height = height;
     gameState->width = width;
+    gameState->isOver = false;
     syncState->currReading = 0;
 
     checkArguments(gameState); 
 
     int currentPlayer = 0;
     int playingPlayers = gameState->playerAmount;
+    time_t lastMoveTime = time(NULL); 
+    time_t currentTime;
     
     sleep(1);
-    while(playingPlayers > 0){
-
-        if (view[0] != '\0'){
-            sem_post(&syncState->readyToPrint);
-            sem_wait(&syncState->printDone);
-        }
+    while(!gameState->isOver){
 
         sem_wait(&syncState->masterSem);
         sem_wait(&syncState->stateSem);
         sem_post(&syncState->masterSem);
         
-        currentPlayer = ++currentPlayer % gameState->playerAmount;
-        
-        int fd = playerPipes[currentPlayer];
+        currentPlayer++;
 
-        if (fd == -1)
-            continue;
-        
-        fd_set readfds;
-        FD_ZERO(&readfds);
-        FD_SET(fd, &readfds);
+        for (size_t i = 0; i < playerAmount; i++){
 
-        struct timeval timeout = {0, 10};
+            if (view[0] != '\0'){
+                sem_post(&syncState->readyToPrint);
+                sem_wait(&syncState->printDone);
+            }
 
-        int ready = select(fd + 1, &readfds, NULL, NULL, &timeout);
-    
-        if (ready < 0 ){
-            perror("select");
-            break;
-        }
-        
-
-
-        if (ready > 0 && FD_ISSET(fd, &readfds)){
-            unsigned char move;
-            int n = read(fd, &move, sizeof(move));
+            currentPlayer = (currentPlayer + i) % gameState->playerAmount;
             
-            if (n <= 0){
-                close(fd);
-                playerPipes[currentPlayer] = -1;
-                playingPlayers--;
-            }else{
+            int fd = playerPipes[currentPlayer];
 
+            if (fd == -1)
+                continue;
+            
+            fd_set readfds;
+            FD_ZERO(&readfds);
+            FD_SET(fd, &readfds);
+    
+            struct timeval timeout = {0, 1};
+    
+            int ready = select(fd + 1, &readfds, NULL, NULL, &timeout);
+        
+            if (ready < 0 ){
+                perror("select");
+                break;
+            }
+            
+            if (ready > 0 && FD_ISSET(fd, &readfds)){
 
-
-                if(processMove(gameState, currentPlayer, move) == 1){
+                unsigned char move;
+                int n = read(fd, &move, sizeof(move));
+                
+                if (n <= 0){
+                    close(fd);
+                    playerPipes[currentPlayer] = -1;
+                    playingPlayers--;
+                }else if(processMove(gameState, currentPlayer, move) == 1){
+                    updateMap(gameState, currentPlayer);
                     if (checkCantMove(gameState, currentPlayer)){
                         gameState->players[currentPlayer].cantMove = true;
                         playingPlayers--;
                     }
-                    
-                    updateMap(gameState, currentPlayer);
                 }
 
             }
-            sem_post(&syncState->stateSem);
-            sleep(1);
-            
+                lastMoveTime = time(NULL);
+                usleep(delay * MICRO_TO_MILI);
         }
+        
+        currentTime = time(NULL);
+        if ((int)difftime(currentTime, lastMoveTime) >= timeout || playingPlayers == 0) {
+            gameState->isOver = true;
+        }
+
+        
+        sem_post(&syncState->stateSem);               
     }
+
+    sem_post(&syncState->masterSem);               
+    sem_post(&syncState->stateSem);               
+
 
 }
 
