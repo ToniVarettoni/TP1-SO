@@ -29,9 +29,8 @@ void updateMoves(unsigned char moves[MAX_PLAYERS], GameState * gameState);
 bool processMove(GameState * gameState, int currentPlayer, unsigned char move);
 bool checkCantMove(GameState * gameState, int currentPlayer);
 
-
 int main(int argc, char *argv[]) {
-
+    
     int height = DEF_HEIGHT;
     int width = DEF_WIDTH;
 
@@ -146,26 +145,25 @@ int main(int argc, char *argv[]) {
 
     gameState->height = height;
     gameState->width = width;
+    syncState->currReading = 0;
 
     checkArguments(gameState); 
 
     int currentPlayer = 0;
     int playingPlayers = gameState->playerAmount;
     
+    sleep(1);
     while(playingPlayers > 0){
 
         if (view[0] != '\0'){
             sem_post(&syncState->readyToPrint);
             sem_wait(&syncState->printDone);
         }
-        
-        
 
         sem_wait(&syncState->masterSem);
         sem_wait(&syncState->stateSem);
         sem_post(&syncState->masterSem);
-
-
+        
         currentPlayer = ++currentPlayer % gameState->playerAmount;
         
         int fd = playerPipes[currentPlayer];
@@ -214,33 +212,9 @@ int main(int argc, char *argv[]) {
             sleep(1);
             
         }
-        
-        
-        
-
     }
 
 }
-
-void get_moves(int playerPipes[]){
-    fd_set readfds;
-    int maxfd = 0;
-    unsigned char moves[MAX_PLAYERS];
-
-    for(size_t i = 0; i < MAX_PLAYERS; i++){
-        unsigned char move;
-        read(playerPipes[i], &move, sizeof(move));
-        moves[i] = move;
-    }
-}
-
-void updateMoves(unsigned char moves[MAX_PLAYERS], GameState * gameState){
-    for(size_t i = 0; i < MAX_PLAYERS; i++){
-        switch(moves[i])
-        gameState->players[i].x;
-    }
-}
-
 
 void checkArguments(GameState * gameState){
     if (gameState->height < DEF_HEIGHT || gameState->width < DEF_WIDTH){
