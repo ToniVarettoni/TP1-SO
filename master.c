@@ -130,6 +130,7 @@ int main(int argc, char *argv[]) {
         playerPipes[gameState->playerAmount] = initPlayer(gameState, gameState->playerAmount);
         spawnPlayer(gameState, gameState->playerAmount);
         updateMap(gameState, gameState->playerAmount);
+        gameState->players[gameState->playerAmount].cantMove = false;
     }
 
     gameState->height = height;
@@ -156,6 +157,7 @@ int main(int argc, char *argv[]) {
         for (size_t i = 0; i < playerAmount; i++){
 
             if (view[0] != '\0'){
+                usleep(delay * MICRO_TO_MILI);
                 sem_post(&syncState->readyToPrint);
                 sem_wait(&syncState->printDone);
             }
@@ -171,7 +173,7 @@ int main(int argc, char *argv[]) {
             FD_ZERO(&readfds);
             FD_SET(fd, &readfds);
     
-            struct timeval timeout = {0, 1};
+            struct timeval timeout = {0, 10};
     
             int ready = select(fd + 1, &readfds, NULL, NULL, &timeout);
         
@@ -189,21 +191,19 @@ int main(int argc, char *argv[]) {
                     close(fd);
                     playerPipes[currentPlayer] = -1;
                     playingPlayers--;
-                }else if(processMove(gameState, currentPlayer, move) == 1){
+                }else if(processMove(gameState, currentPlayer, move)){
                     updateMap(gameState, currentPlayer);
                     if (checkCantMove(gameState, currentPlayer)){
                         gameState->players[currentPlayer].cantMove = true;
                         playingPlayers--;
                     }
                 }
-
-            }
                 lastMoveTime = time(NULL);
-                usleep(delay * MICRO_TO_MILI);
+            }
         }
         
         currentTime = time(NULL);
-        if ((int)difftime(currentTime, lastMoveTime) >= timeout || playingPlayers == 0) {
+        if ((int)difftime(currentTime, lastMoveTime) >= timeout || playingPlayers <= 0) {
             gameState->isOver = true;
         }
 
