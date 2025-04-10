@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "structs.h"
+#include "shared_memory.h"
 
 enum player {
     PLAYER9 = -8,
@@ -37,34 +38,13 @@ int visible_length(const char *s) {
 }
 
 int main(int argc, char *argv[]){
-    int gameState_fd = shm_open("/game_state", O_RDONLY, 0666);
-    if (gameState_fd == -1) {
-        perror("Error abriendo la memoria compartida");
-        exit(EXIT_FAILURE);
-    }
+    int h = atoi(argv[1]);
+    int w = atoi(argv[2]);
+    int gameState_fd;
+    int syncState_fd;
 
-    int sync_fd = shm_open("/game_sync", O_RDWR, 0666);
-    if (sync_fd == -1) {
-        perror("Error abriendo la memoria compartida");
-        exit(EXIT_FAILURE);
-    }
-
-    GameState *gameState = (GameState *) mmap(NULL, sizeof(GameState), PROT_READ, MAP_SHARED, gameState_fd, 0);
-    if (gameState == MAP_FAILED) {
-        perror("Error mapeando la memoria compartida");
-        close(gameState_fd);
-        exit(EXIT_FAILURE);
-    }
-
-    gameSync *syncState = (gameSync *) mmap(NULL, sizeof(gameSync), PROT_READ | PROT_WRITE, MAP_SHARED, sync_fd, 0);
-    if (syncState == MAP_FAILED) {
-        perror("Error mapeando la memoria compartida");
-        close(gameState_fd);
-        exit(EXIT_FAILURE);
-    }
-
-    int h = gameState->height;
-    int w = gameState->width;
+    GameState * gameState = (GameState *)shm_open_and_map("/game_state", sizeof(GameState) + sizeof(int) * h * w, O_RDONLY, RO, &gameState_fd);
+    gameSync * syncState = (gameSync *)shm_open_and_map("/game_sync", sizeof(gameSync), O_RDWR, RW, &syncState_fd);
 
     // Obtener el ancho de la terminal
     struct winsize term;
@@ -120,6 +100,10 @@ int main(int argc, char *argv[]){
         
         sem_post(&syncState->printDone);
     }
+
+    shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * h * w);
+    shm_cleanup(syncState_fd, syncState, sizeof(gameSync));
+
     return 0;
 }
 
