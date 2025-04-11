@@ -91,8 +91,26 @@ int main(int argc, char *argv[]) {
     int gameState_fd;
     int syncState_fd;
 
+<<<<<<< Updated upstream
     GameState * gameState = (GameState *)shm_create_and_map("/game_state", sizeof(GameState) + sizeof(int) * height * width, RW, &gameState_fd);
     gameSync * syncState = (gameSync *)shm_create_and_map("/game_sync", sizeof(gameSync), RW, &syncState_fd);
+=======
+    if (gameState_fd == -1 || sync_fd == -1) {
+        perror("Error creating shared memory");
+        exit(EXIT_FAILURE);
+    }
+
+    ftruncate(gameState_fd, sizeof(GameState) + sizeof(int) * height * width);
+    ftruncate(sync_fd, sizeof(gameSync));
+
+    GameState *gameState =  (GameState *) mmap(NULL, sizeof(GameState) + sizeof(int) * height * width, PROT_READ | PROT_WRITE, MAP_SHARED, gameState_fd, 0);
+    gameSync *syncState = (gameSync *) mmap(NULL, sizeof(gameSync), PROT_READ | PROT_WRITE, MAP_SHARED, sync_fd, 0);
+    
+    if (gameState == MAP_FAILED || syncState == MAP_FAILED) {
+        perror("Error mapping shared memory");
+        exit(EXIT_FAILURE);
+    }
+>>>>>>> Stashed changes
 
     if (sem_init(&syncState->masterSem, 1, 1) == -1) {
     perror("Error initializing masterSem");
@@ -145,8 +163,17 @@ int main(int argc, char *argv[]) {
     time_t lastMoveTime = time(NULL); 
     time_t currentTime;
     
+<<<<<<< Updated upstream
     sleep(1);
     while(!gameState->isOver){
+=======
+    while(playingPlayers > 0){
+
+        if (view[0] != '\0'){
+            sem_post(&syncState->readyToPrint);
+            sem_wait(&syncState->printDone);
+        }
+>>>>>>> Stashed changes
 
         sem_wait(&syncState->masterSem);
         sem_wait(&syncState->stateSem);
