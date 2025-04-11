@@ -35,7 +35,7 @@ int main(int argc, char * argv[]){
         
     }
     
-    while (1)
+    while (!gameState->isOver)
     {
         sem_wait(&syncState->masterSem);
 
@@ -77,7 +77,7 @@ int main(int argc, char * argv[]){
         sem_post(&syncState->masterSem);
         usleep(500);
     }
-    
+
     shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * h * w);
     shm_cleanup(syncState_fd, syncState, sizeof(gameSync));
 

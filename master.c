@@ -8,6 +8,7 @@
 #include <time.h>
 #include <sys/select.h>
 #include "shared_memory.h"
+#include <sys/wait.h>
 
 #define ARGUMENT_ERROR "Usage: ./master [-w width] [-h height] [-d delay] [-s seed] [-v view] [-t timeout] -p player1 player2 ..."
 
@@ -20,7 +21,7 @@
 #define MICRO_TO_MILI 1000
 
 
-void initView(GameState * gameState, char * view);
+void initView(GameState * gameState, char * view, int viewPid);
 void checkArguments(GameState * gameState);
 int initPlayer(GameState * gameState, int i);
 void spawnPlayer(GameState * gameState, int i);
@@ -91,30 +92,12 @@ int main(int argc, char *argv[]) {
     int gameState_fd;
     int syncState_fd;
 
-<<<<<<< Updated upstream
     GameState * gameState = (GameState *)shm_create_and_map("/game_state", sizeof(GameState) + sizeof(int) * height * width, RW, &gameState_fd);
     gameSync * syncState = (gameSync *)shm_create_and_map("/game_sync", sizeof(gameSync), RW, &syncState_fd);
-=======
-    if (gameState_fd == -1 || sync_fd == -1) {
-        perror("Error creating shared memory");
-        exit(EXIT_FAILURE);
-    }
-
-    ftruncate(gameState_fd, sizeof(GameState) + sizeof(int) * height * width);
-    ftruncate(sync_fd, sizeof(gameSync));
-
-    GameState *gameState =  (GameState *) mmap(NULL, sizeof(GameState) + sizeof(int) * height * width, PROT_READ | PROT_WRITE, MAP_SHARED, gameState_fd, 0);
-    gameSync *syncState = (gameSync *) mmap(NULL, sizeof(gameSync), PROT_READ | PROT_WRITE, MAP_SHARED, sync_fd, 0);
-    
-    if (gameState == MAP_FAILED || syncState == MAP_FAILED) {
-        perror("Error mapping shared memory");
-        exit(EXIT_FAILURE);
-    }
->>>>>>> Stashed changes
 
     if (sem_init(&syncState->masterSem, 1, 1) == -1) {
-    perror("Error initializing masterSem");
-    exit(EXIT_FAILURE);
+        perror("Error initializing masterSem");
+        exit(EXIT_FAILURE);
     }
 
     if (sem_init(&syncState->stateSem, 1, 1) == -1) {
@@ -139,8 +122,14 @@ int main(int argc, char *argv[]) {
 
     setMap(gameState, seed);
 
+    int viewPid;
+    gameState->height = height;
+    gameState->width = width;
+    gameState->isOver = false;
+    syncState->currReading = 0;
+
     if(view[0] != '\0'){
-        initView(gameState, view);
+        initView(gameState, view, viewPid);
     }
 
     for(gameState->playerAmount = 0; gameState->playerAmount < playerAmount; gameState->playerAmount++){
@@ -151,34 +140,24 @@ int main(int argc, char *argv[]) {
         gameState->players[gameState->playerAmount].cantMove = false;
     }
 
-    gameState->height = height;
-    gameState->width = width;
-    gameState->isOver = false;
-    syncState->currReading = 0;
-
     checkArguments(gameState); 
 
     int currentPlayer = 0;
     int playingPlayers = gameState->playerAmount;
     time_t lastMoveTime = time(NULL); 
     time_t currentTime;
-    
-<<<<<<< Updated upstream
-    sleep(1);
-    while(!gameState->isOver){
-=======
+
     while(playingPlayers > 0){
 
         if (view[0] != '\0'){
             sem_post(&syncState->readyToPrint);
             sem_wait(&syncState->printDone);
         }
->>>>>>> Stashed changes
 
         sem_wait(&syncState->masterSem);
         sem_wait(&syncState->stateSem);
         sem_post(&syncState->masterSem);
-        
+
         currentPlayer++;
 
         for (size_t i = 0; i < playerAmount; i++){
@@ -190,39 +169,39 @@ int main(int argc, char *argv[]) {
             }
 
             currentPlayer = (currentPlayer + i) % gameState->playerAmount;
-            
+
             int fd = playerPipes[currentPlayer];
 
             if (fd == -1)
                 continue;
-            
+
             fd_set readfds;
             FD_ZERO(&readfds);
             FD_SET(fd, &readfds);
-    
+
             struct timeval timeout = {0, 10};
-    
+
             int ready = select(fd + 1, &readfds, NULL, NULL, &timeout);
-        
+
             if (ready < 0 ){
                 perror("select");
                 break;
             }
-            
+
             if (ready > 0 && FD_ISSET(fd, &readfds)){
 
                 unsigned char move;
                 int n = read(fd, &move, sizeof(move));
-                
+
                 if (n <= 0){
                     close(fd);
                     playerPipes[currentPlayer] = -1;
                     playingPlayers--;
                 }else if(processMove(gameState, currentPlayer, move)){
-                    updateMap(gameState, currentPlayer);
+                        updateMap(gameState, currentPlayer);
                     if (checkCantMove(gameState, currentPlayer)){
-                        gameState->players[currentPlayer].cantMove = true;
-                        playingPlayers--;
+                            gameState->players[currentPlayer].cantMove = true;
+                            playingPlayers--;
                     }
                 }
                 lastMoveTime = time(NULL);
@@ -235,14 +214,52 @@ int main(int argc, char *argv[]) {
         }
 
         
-        sem_post(&syncState->stateSem);               
+        sem_post(&syncState->stateSem);
     }
 
     sem_post(&syncState->masterSem);               
-    sem_post(&syncState->stateSem);               
+    sem_post(&syncState->stateSem);  
+    
+    if(view[0] != '\0'){
+        waitpid(viewPid, NULL, 0);
+    }
+
+    for (size_t i = 0; i < gameState->playerAmount; i++){
+        waitpid(gameState->players[i].pid, NULL, 0);
+        if (playerPipes[i] != -1){
+            close(playerPipes[i]);
+        }
+    }
 
     shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * height * width);
     shm_cleanup(syncState_fd, syncState, sizeof(gameSync));
+
+    shm_unlink("/game_state");
+    shm_unlink("/game_sync");
+
+    if(sem_destroy(&syncState->masterSem) == -1) {
+        perror("Error destroying masterSem");
+        exit(EXIT_FAILURE);
+    }
+    if(sem_destroy(&syncState->stateSem) == -1) {
+        perror("Error destroying stateSem");
+        exit(EXIT_FAILURE);
+    }
+    if(sem_destroy(&syncState->currReadingSem) == -1) {
+        perror("Error destroying currReadingSem");
+        exit(EXIT_FAILURE);
+    }
+    if(sem_destroy(&syncState->readyToPrint) == -1) {
+        perror("Error destroying readyToPrint sem");
+        exit(EXIT_FAILURE);
+    }
+    if(sem_destroy(&syncState->printDone) == -1) {
+        perror("Error destroying print done Sem");
+        exit(EXIT_FAILURE);
+    }
+
+
+    return 0;
 }
 
 void checkArguments(GameState * gameState){
@@ -261,7 +278,7 @@ void checkArguments(GameState * gameState){
     return;
 }
 
-void initView(GameState * gameState, char * view){
+void initView(GameState * gameState, char * view, int viewPid){
 
     int p = fork();
     
@@ -282,7 +299,7 @@ void initView(GameState * gameState, char * view){
         execve(path, args, NULL);
         perror("execve view");
         exit(EXIT_FAILURE);
-    }
+    } else viewPid = p;
 }
 
 int initPlayer(GameState * gameState, int i){
@@ -326,6 +343,11 @@ int initPlayer(GameState * gameState, int i){
 }
 
 void spawnPlayer(GameState * gameState, int i){
+
+    gameState->players[i].score = 0;
+    gameState->players[i].invalidMoves = 0;
+    gameState->players[i].validMoves = 0;
+    gameState->players[i].cantMove = false;
 
     switch (i)
     {

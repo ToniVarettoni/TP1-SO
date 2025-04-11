@@ -22,19 +22,10 @@ int visible_length(const char *s);
 void printPad(int pad);
 
 int main(int argc, char *argv[]){
-<<<<<<< Updated upstream
     int h = atoi(argv[1]);
     int w = atoi(argv[2]);
     int gameState_fd;
     int syncState_fd;
-=======
-
-    int gameState_fd = shm_open("/game_state", O_RDONLY, 0666);
-    if (gameState_fd == -1) {
-        perror("Error abriendo la memoria compartida");
-        exit(EXIT_FAILURE);
-    }
->>>>>>> Stashed changes
 
     GameState * gameState = (GameState *)shm_open_and_map("/game_state", sizeof(GameState) + sizeof(int) * h * w, O_RDONLY, RO, &gameState_fd);
     gameSync * syncState = (gameSync *)shm_open_and_map("/game_sync", sizeof(gameSync), O_RDWR, RW, &syncState_fd);
@@ -45,6 +36,7 @@ int main(int argc, char *argv[]){
 
     while (!gameState->isOver)
     {
+        
         sem_wait(&syncState->readyToPrint);
         printf("\033[H\033[J");
 
