@@ -1,3 +1,6 @@
+#ifndef STRUCTS_H
+#define STRUCTS_H
+
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -36,4 +39,4 @@ typedef struct {
     bool isOver; // Indica si el juego se ha terminado
     int map[]; // Puntero al comienzo del tablero. fila-0, fila-1, ..., fila-n-1
 } GameState;
-        
+#endif
