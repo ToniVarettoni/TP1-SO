@@ -21,7 +21,7 @@
 #define MICRO_TO_MILI 1000
 
 
-void initView(GameState * gameState, char * view, int viewPid);
+void initView(GameState * gameState, char * view, int * viewPid);
 void checkArguments(GameState * gameState);
 int initPlayer(GameState * gameState, int i);
 void spawnPlayer(GameState * gameState, int i);
@@ -33,6 +33,9 @@ bool processMove(GameState * gameState, int currentPlayer, unsigned char move);
 bool checkCantMove(GameState * gameState, int currentPlayer);
 
 int main(int argc, char *argv[]) {
+
+    shm_unlink("/game_state");
+    shm_unlink("/game_sync");
     
     int height = DEF_HEIGHT;
     int width = DEF_WIDTH;
@@ -120,16 +123,16 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    setMap(gameState, seed);
-
     int viewPid;
     gameState->height = height;
     gameState->width = width;
     gameState->isOver = false;
     syncState->currReading = 0;
 
+    setMap(gameState, seed);
+
     if(view[0] != '\0'){
-        initView(gameState, view, viewPid);
+        initView(gameState, view, &viewPid);
     }
 
     for(gameState->playerAmount = 0; gameState->playerAmount < playerAmount; gameState->playerAmount++){
@@ -175,6 +178,14 @@ int main(int argc, char *argv[]) {
             if (fd == -1)
                 continue;
 
+            if (checkCantMove(gameState, currentPlayer)){ 
+                gameState->players[currentPlayer].cantMove = true;
+                playingPlayers--;
+                close(fd);
+                playerPipes[currentPlayer] = -1;
+                continue;
+            }
+
             fd_set readfds;
             FD_ZERO(&readfds);
             FD_SET(fd, &readfds);
@@ -185,7 +196,7 @@ int main(int argc, char *argv[]) {
 
             if (ready < 0 ){
                 perror("select");
-                break;
+                continue;
             }
 
             if (ready > 0 && FD_ISSET(fd, &readfds)){
@@ -198,11 +209,7 @@ int main(int argc, char *argv[]) {
                     playerPipes[currentPlayer] = -1;
                     playingPlayers--;
                 }else if(processMove(gameState, currentPlayer, move)){
-                        updateMap(gameState, currentPlayer);
-                    if (checkCantMove(gameState, currentPlayer)){
-                            gameState->players[currentPlayer].cantMove = true;
-                            playingPlayers--;
-                    }
+                    updateMap(gameState, currentPlayer);
                 }
                 lastMoveTime = time(NULL);
             }
@@ -224,12 +231,6 @@ int main(int argc, char *argv[]) {
         waitpid(viewPid, NULL, 0);
     }
 
-    for (size_t i = 0; i < gameState->playerAmount; i++){
-        waitpid(gameState->players[i].pid, NULL, 0);
-        if (playerPipes[i] != -1){
-            close(playerPipes[i]);
-        }
-    }
 
     shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * height * width);
     shm_cleanup(syncState_fd, syncState, sizeof(gameSync));
@@ -278,7 +279,7 @@ void checkArguments(GameState * gameState){
     return;
 }
 
-void initView(GameState * gameState, char * view, int viewPid){
+void initView(GameState * gameState, char * view, int * viewPid){
 
     int p = fork();
     
@@ -299,7 +300,7 @@ void initView(GameState * gameState, char * view, int viewPid){
         execve(path, args, NULL);
         perror("execve view");
         exit(EXIT_FAILURE);
-    } else viewPid = p;
+    } else *(viewPid) = p;
 }
 
 int initPlayer(GameState * gameState, int i){
