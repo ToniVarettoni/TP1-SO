@@ -35,7 +35,7 @@ int main(int argc, char * argv[]){
         
     }
     
-    while (!gameState->isOver)
+    while (1)
     {
         sem_wait(&syncState->masterSem);
 
