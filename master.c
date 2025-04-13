@@ -20,7 +20,7 @@
 #define MAX_LENGTH_PATH 100
 #define MICRO_TO_MILI 1000
 
-void unlockSemaphores(gameSync *syncState);
+
 void initView(GameState * gameState, char * view, int viewPid);
 void checkArguments(GameState * gameState);
 int initPlayer(GameState * gameState, int i);
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
     GameState * gameState = (GameState *)shm_create_and_map("/game_state", sizeof(GameState) + sizeof(int) * height * width, RW, &gameState_fd);
     gameSync * syncState = (gameSync *)shm_create_and_map("/game_sync", sizeof(gameSync), RW, &syncState_fd);
 
-    if (sem_init(&syncState->masterSem, 1, 0) == -1) {
+    if (sem_init(&syncState->masterSem, 1, 1) == -1) {
         perror("Error initializing masterSem");
         exit(EXIT_FAILURE);
     }
@@ -120,13 +120,13 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    setMap(gameState, seed);
+
     int viewPid;
     gameState->height = height;
     gameState->width = width;
     gameState->isOver = false;
     syncState->currReading = 0;
-
-    setMap(gameState, seed);    
 
     if(view[0] != '\0'){
         initView(gameState, view, viewPid);
@@ -147,9 +147,7 @@ int main(int argc, char *argv[]) {
     time_t lastMoveTime = time(NULL); 
     time_t currentTime;
 
-    sem_post(&syncState->masterSem);
-
-    while(!gameState->isOver){
+    while(playingPlayers > 0){
 
         if (view[0] != '\0'){
             sem_post(&syncState->readyToPrint);
@@ -191,8 +189,7 @@ int main(int argc, char *argv[]) {
             }
 
             if (ready > 0 && FD_ISSET(fd, &readfds)){
-                
-            
+
                 unsigned char move;
                 int n = read(fd, &move, sizeof(move));
 
@@ -202,7 +199,7 @@ int main(int argc, char *argv[]) {
                     playingPlayers--;
                 }else if(processMove(gameState, currentPlayer, move)){
                         updateMap(gameState, currentPlayer);
-                        if(checkCantMove(gameState, currentPlayer)){
+                    if (checkCantMove(gameState, currentPlayer)){
                             gameState->players[currentPlayer].cantMove = true;
                             playingPlayers--;
                     }
@@ -220,18 +217,25 @@ int main(int argc, char *argv[]) {
         sem_post(&syncState->stateSem);
     }
 
-    unlockSemaphores(syncState); 
+    sem_post(&syncState->masterSem);               
+    sem_post(&syncState->stateSem);  
     
     if(view[0] != '\0'){
-        kill(viewPid, SIGTERM);
+        waitpid(viewPid, NULL, 0);
     }
 
     for (size_t i = 0; i < gameState->playerAmount; i++){
-        kill(gameState->players[i].pid, SIGTERM);
+        waitpid(gameState->players[i].pid, NULL, 0);
         if (playerPipes[i] != -1){
             close(playerPipes[i]);
         }
     }
+
+    shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * height * width);
+    shm_cleanup(syncState_fd, syncState, sizeof(gameSync));
+
+    shm_unlink("/game_state");
+    shm_unlink("/game_sync");
 
     if(sem_destroy(&syncState->masterSem) == -1) {
         perror("Error destroying masterSem");
@@ -254,25 +258,8 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * height * width);
-    shm_cleanup(syncState_fd, syncState, sizeof(gameSync));
-
-    if (shm_unlink("/game_state") == -1) {
-        perror("Error unlinking /game_state");
-    }
-    if (shm_unlink("/game_sync") == -1) {
-        perror("Error unlinking /game_sync");
-    }
 
     return 0;
-}
-
-void unlockSemaphores(gameSync *syncState) {
-    sem_post(&syncState->masterSem);
-    sem_post(&syncState->stateSem);
-    sem_post(&syncState->currReadingSem);
-    sem_post(&syncState->readyToPrint);
-    sem_post(&syncState->printDone);
 }
 
 void checkArguments(GameState * gameState){
@@ -286,8 +273,6 @@ void checkArguments(GameState * gameState){
     }
     if (gameState->playerAmount > 9){
         printf("Error: At most 9 players can be specified using -p.\n");
-        shm_unlink("/game_state");
-        shm_unlink("/game_sync");
         exit(EXIT_FAILURE);
     }
     return;
@@ -414,14 +399,16 @@ void updateMap(GameState * gameState, int index){
 }
 
 void setMap(GameState * gameState, unsigned int seed){
+    srand(seed);
     for(size_t i = 0; i < gameState->height; i++){
         for(size_t j = 0; j < gameState->width; j++){
-            gameState->map[i * gameState->width + j] = (rand() % MAX_PLAYERS) + 1;
+            gameState->map[i * gameState->width + j] = rand() % MAX_PLAYERS + 1;
         }
     }
 }
 
 bool processMove(GameState * gameState, int currentPlayer, unsigned char move){
+
 
     int x = gameState->players[currentPlayer].x;
     int y = gameState->players[currentPlayer].y;
@@ -430,7 +417,6 @@ bool processMove(GameState * gameState, int currentPlayer, unsigned char move){
 
     switch (move){
     case 0:
-    //printf("y: %d | valor de mapa: %d\n", y, gameState->map[x + (y-1)*w]);
         if (y > 0 && gameState->map[x + (y-1)*w] > 0){
             gameState->players[currentPlayer].y--;
             gameState->players[currentPlayer].validMoves++;
@@ -438,7 +424,6 @@ bool processMove(GameState * gameState, int currentPlayer, unsigned char move){
         }break;
 
     case 1:
-    //printf("x: %d | w: %d | y: %d | valor de mapa: %d\n", x, w, y, gameState->map[(x+1) + (y-1)*w]);
         if (y > 0 && x < w-1 && gameState->map[(x+1) + (y-1)*w] > 0){
             gameState->players[currentPlayer].x++;
             gameState->players[currentPlayer].y--;
@@ -446,14 +431,12 @@ bool processMove(GameState * gameState, int currentPlayer, unsigned char move){
             return true;
         }break;
     case 2:
-    //printf("x: %d | w: %d | valor de mapa: %d\n", x, w, gameState->map[(x+1) + y*w]);
         if (x < w-1 && gameState->map[(x+1) + y*w] > 0){
             gameState->players[currentPlayer].x++;
             gameState->players[currentPlayer].validMoves++;
             return true;
         }break;
     case 3:
-    //printf("x: %d | w: %d | y: %d | h: %d | valor de mapa: %d\n", x, w, y, h, gameState->map[(x+1) + (y+1)*w]);
         if (x < w-1 && y < h-1 && gameState->map[(x+1) + (y+1)*w] > 0){
             gameState->players[currentPlayer].x++;
             gameState->players[currentPlayer].y++;
@@ -461,14 +444,12 @@ bool processMove(GameState * gameState, int currentPlayer, unsigned char move){
             return true;
         }break;
     case 4:
-    //printf("y: %d | h: %d | valor de mapa: %d\n", y, h, gameState->map[x + (y+1)*w]);
         if (y < h-1 && gameState->map[x + (y+1)*w] > 0){
             gameState->players[currentPlayer].y++;
             gameState->players[currentPlayer].validMoves++;
             return true;
         }break;
     case 5:
-    //printf("x: %d | y: %d | h: %d | valor de mapa: %d\n", x, y, h, gameState->map[(x-1) + (y+1)*w]);
         if (x > 0 && y < h-1 && gameState->map[(x-1) + (y+1)*w] > 0){
             gameState->players[currentPlayer].x--;
             gameState->players[currentPlayer].y++;
@@ -476,14 +457,12 @@ bool processMove(GameState * gameState, int currentPlayer, unsigned char move){
             return true;
         }break; 
     case 6: 
-    //printf("x: %d | valor de mapa: %d\n", x, gameState->map[(x-1) + y*w]);
         if (x > 0 && gameState->map[(x-1) + y*w] > 0){
             gameState->players[currentPlayer].x--;
             gameState->players[currentPlayer].validMoves++;
             return true;
         }break;
     case 7:
-    //printf("x: %d | y: %d | valor de mapa: %d\n", x, y, gameState->map[(x-1) + (y-1)*w]);
         if (x > 0 && y > 0 && gameState->map[(x-1) + (y-1)*w] > 0){
             gameState->players[currentPlayer].x--;
             gameState->players[currentPlayer].y--;

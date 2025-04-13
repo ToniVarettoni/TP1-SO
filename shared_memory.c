@@ -43,12 +43,6 @@ void * shm_open_and_map(const char* name, size_t size, int flags, int prot, int 
 }
 
 void shm_cleanup(int fd, void * addr, size_t size){
-    if(munmap(addr, size) == -1) {
-        perror("munmap");
-        exit(EXIT_FAILURE);
-    }
-    if(close(fd) == -1) {
-        perror("close");
-        exit(EXIT_FAILURE);
-    }
-}   
+    munmap(addr, size);
+    close(fd);
+}
