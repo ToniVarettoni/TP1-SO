@@ -1,8 +1,6 @@
 #include "game_utils.h"
 #include <stdlib.h>
 
-
-
 void spawnPlayer(GameState * gameState, int i){
 
     gameState->players[i].score = 0;
@@ -69,8 +67,6 @@ void setMap(GameState * gameState, unsigned int seed){
 }
 
 bool processMove(GameState * gameState, int currentPlayer, unsigned char move){
-
-
     int x = gameState->players[currentPlayer].x;
     int y = gameState->players[currentPlayer].y;
     int w = gameState->width;
@@ -148,7 +144,7 @@ bool checkCantMove(GameState * gameState, int currentPlayer){
         for (int j = y - 1; j <= y + 1; j++){
             if (i >= 0 && j >= 0 && i < w && j < h){
                 if (gameState->map[i + w*j] > 0){
-                    return !true;                   //UN POCO CONFUSO PERO ESTA FUNCION TIENE MAS SENTIDO
+                    return !true;
                 }
             }
         }    

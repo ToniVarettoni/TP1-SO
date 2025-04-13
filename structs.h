@@ -24,8 +24,8 @@ typedef struct {
 typedef struct {
     char name[MAX_LENGTH_NAME]; // Nombre del jugador
     unsigned int score; // Puntaje
-    unsigned int validMoves; // Cantidad de solicitudes de movimientos inválidas realizadas
-    unsigned int invalidMoves; // Cantidad de solicitudes de movimientos válidas realizadas
+    unsigned int invalidMoves; // Cantidad de solicitudes de movimientos inválidas realizadas
+    unsigned int validMoves; // Cantidad de solicitudes de movimientos válidas realizadas
     unsigned short x, y; // Coordenadas x e y en el tablero
     pid_t pid; // Identificador de proceso
     bool cantMove; // Indica si el jugador tiene movimientos válidos disponibles

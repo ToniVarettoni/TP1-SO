@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     int width = DEF_WIDTH;
 
     char players[MAX_PLAYERS][MAX_LENGTH_PATH];
-    int playerAmount = 0;
+    int playingPlayers = 0;
     char view[MAX_LENGTH_PATH];
     view[0] = '\0';
     unsigned int seed = time(NULL);
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
                             break;
                         case 'p':
                             while(i + 1 < argc && argv[i + 1][0] != '-'){
-                                strcpy(players[playerAmount++], argv[i + 1]);
+                                strcpy(players[playingPlayers++], argv[i + 1]);
                                 i++;
                             }
                             break;
@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    if (sem_init(&syncState->printDone, 1, 1) == -1) {
+    if (sem_init(&syncState->printDone, 1, 0) == -1) {
         perror("Error initializing print done Sem");
         exit(EXIT_FAILURE);
     }
@@ -119,92 +119,93 @@ int main(int argc, char *argv[]) {
     gameState->isOver = false;
     syncState->currReading = 0;
 
-
     setMap(gameState, seed);
 
     if(view[0] != '\0'){
         initView(gameState, view, &viewPid);
     }
 
-    for(gameState->playerAmount = 0; gameState->playerAmount < playerAmount; gameState->playerAmount++){
+    for(gameState->playerAmount = 0; gameState->playerAmount < playingPlayers; gameState->playerAmount++){
         strcpy(gameState->players[gameState->playerAmount].name, players[gameState->playerAmount]);
         playerPipes[gameState->playerAmount] = initPlayer(gameState, gameState->playerAmount);
         spawnPlayer(gameState, gameState->playerAmount);
-        updateMap(gameState, gameState->playerAmount);
-        gameState->players[gameState->playerAmount].cantMove = false;
+        gameState->map[gameState->players[gameState->playerAmount].x + gameState->players[gameState->playerAmount].y * (gameState->width)] = 0 - gameState->playerAmount;
     }
 
     checkArguments(gameState); 
 
     int currentPlayer = 0;
-    int playingPlayers = gameState->playerAmount;
     time_t lastMoveTime = time(NULL); 
     time_t currentTime;
 
-    while(playingPlayers > 0){
-
-        if (view[0] != '\0'){
-            sem_post(&syncState->readyToPrint);
-            sem_wait(&syncState->printDone);
-        }
+    if (view[0] != '\0'){
+        sem_post(&syncState->readyToPrint);
+        sem_wait(&syncState->printDone);
+    }
+    
+    sleep(1);
+    while(!gameState->isOver){
 
         sem_wait(&syncState->masterSem);
         sem_wait(&syncState->stateSem);
         sem_post(&syncState->masterSem);
 
-        currentPlayer++;
+        fd_set readfds;
+        FD_ZERO(&readfds);
 
-        for (size_t i = 0; i < playerAmount; i++){
+        int max_fd = -1;
 
-            if (view[0] != '\0'){
-                usleep(delay * MICRO_TO_MILI);
-                sem_post(&syncState->readyToPrint);
-                sem_wait(&syncState->printDone);
-            }
-
-            currentPlayer = (currentPlayer + i) % gameState->playerAmount;
-
-            int fd = playerPipes[currentPlayer];
-
-            if (fd == -1)
-                continue;
-
-            if (checkCantMove(gameState, currentPlayer)){ 
-                gameState->players[currentPlayer].cantMove = true;
-                playingPlayers--;
-                close(fd);
-                playerPipes[currentPlayer] = -1;
-                continue;
-            }
-
-            fd_set readfds;
-            FD_ZERO(&readfds);
-            FD_SET(fd, &readfds);
-
-            struct timeval timeout = {0, 10};
-
-            int ready = select(fd + 1, &readfds, NULL, NULL, &timeout);
-
-            if (ready < 0 ){
-                perror("select");
-                continue;
-            }
-
-            if (ready > 0 && FD_ISSET(fd, &readfds)){
-
-                unsigned char move;
-                int n = read(fd, &move, sizeof(move));
-
-                if (n <= 0){
-                    close(fd);
-                    playerPipes[currentPlayer] = -1;
-                    playingPlayers--;
-                }else if(processMove(gameState, currentPlayer, move)){
-                    updateMap(gameState, currentPlayer);
-                }
-                lastMoveTime = time(NULL);
+        for (size_t i = 0; i < gameState->playerAmount; i++) {
+            int fd = playerPipes[i];
+            if (fd != -1) {
+                FD_SET(fd, &readfds);
+                if (fd > max_fd)
+                    max_fd = fd;
             }
         }
+
+        struct timeval timeout_select = {0, 10};
+        int ready = select(max_fd + 1, &readfds, NULL, NULL, &timeout_select);
+
+        if (ready < 0){
+            perror("select");
+            exit(EXIT_FAILURE);
+        }
+
+        if (ready > 0) {
+            for (size_t iter = 0; iter < gameState->playerAmount; iter++) {
+                int i = (iter + currentPlayer) % gameState->playerAmount;
+                if(!gameState->players[i].cantMove){
+                    int fd = playerPipes[i];
+                    if (checkCantMove(gameState, i)){ 
+                        gameState->players[i].cantMove = true;
+                        playingPlayers--;
+                        close(fd);
+                        playerPipes[i] = -1;
+                        continue;
+                    }
+                    if (FD_ISSET(fd, &readfds)) {
+                        unsigned char move;
+                        int n = read(fd, &move, sizeof(move));
+                        if (n <= 0) {
+                            close(fd);
+                            playerPipes[i] = -1;
+                            playingPlayers--;
+                        } else if (processMove(gameState, i, move)) {
+                            updateMap(gameState, i);
+                            if (view[0] != '\0'){
+                                usleep(delay * MICRO_TO_MILI);
+                                sem_post(&syncState->readyToPrint);
+                                sem_wait(&syncState->printDone);
+                            }
+                        }
+                        lastMoveTime = time(NULL);
+                    }
+                }
+            }
+        }
+        
+        currentPlayer++;
         
         currentTime = time(NULL);
         if ((int)difftime(currentTime, lastMoveTime) >= timeout || playingPlayers <= 0) {
@@ -219,6 +220,7 @@ int main(int argc, char *argv[]) {
     sem_post(&syncState->stateSem);  
     
     if(view[0] != '\0'){
+        sem_post(&syncState->readyToPrint);
         waitpid(viewPid, NULL, 0);
     }
 
@@ -263,7 +265,7 @@ void checkArguments(GameState * gameState){
         printf("Error: At least one player must be specified using -p.\n");
         exit(EXIT_FAILURE);
     }
-    if (gameState->playerAmount > 9){
+    if (gameState->playerAmount > MAX_PLAYERS){
         printf("Error: At most 9 players can be specified using -p.\n");
         exit(EXIT_FAILURE);
     }
