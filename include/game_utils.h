@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-void spawnPlayer(GameState * gameState, int i);
+void spawnPlayer(GameState * gameState, int index, int totalPlayers);
 
 void updateMap(GameState * gameState, int index);
 

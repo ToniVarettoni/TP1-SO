@@ -19,7 +19,7 @@ void initView(GameState * gameState, char * view, int * viewPid){
         sprintf(height, "%d", gameState->height);
         sprintf(width, "%d", gameState->width);
 
-        char *args[] = {path, height, width, NULL};
+        char *args[] = {path, width, height, NULL};
         execve(path, args, NULL);
         perror("execve view");
         exit(EXIT_FAILURE);
@@ -55,7 +55,7 @@ int initPlayer(GameState * gameState, int i){
         sprintf(height, "%d", gameState->height);
         sprintf(width, "%d", gameState->width);
 
-        char *args[] = {path, height, width, NULL};        
+        char *args[] = {path, width, height, NULL};        
         execve(path, args, NULL);
         perror("execve player");
         exit(EXIT_FAILURE);

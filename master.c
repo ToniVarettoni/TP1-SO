@@ -6,9 +6,9 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/select.h>
-#include "shared_memory.h"
-#include "game_utils.h"
-#include "process_manager.h"
+#include "include/shared_memory.h"
+#include "include/game_utils.h"
+#include "include/process_manager.h"
 #include <sys/wait.h>
 
 #define ARGUMENT_ERROR "Usage: ./master [-w width] [-h height] [-d delay] [-s seed] [-v view] [-t timeout] -p player1 player2 ..."
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
     int syncState_fd;
 
     GameState * gameState = (GameState *)shm_create_and_map("/game_state", sizeof(GameState) + sizeof(int) * height * width, RW, &gameState_fd);
-    gameSync * syncState = (gameSync *)shm_create_and_map("/game_sync", sizeof(gameSync), RW, &syncState_fd);
+    GameSync * syncState = (GameSync *)shm_create_and_map("/game_sync", sizeof(GameSync), RW, &syncState_fd);
 
     if (sem_init(&syncState->masterSem, 1, 1) == -1) {
         perror("Error initializing masterSem");
@@ -128,13 +128,13 @@ int main(int argc, char *argv[]) {
     for(gameState->playerAmount = 0; gameState->playerAmount < playingPlayers; gameState->playerAmount++){
         strcpy(gameState->players[gameState->playerAmount].name, players[gameState->playerAmount]);
         playerPipes[gameState->playerAmount] = initPlayer(gameState, gameState->playerAmount);
-        spawnPlayer(gameState, gameState->playerAmount);
+        spawnPlayer(gameState, gameState->playerAmount, playingPlayers);
         gameState->map[gameState->players[gameState->playerAmount].x + gameState->players[gameState->playerAmount].y * (gameState->width)] = 0 - gameState->playerAmount;
     }
 
     checkArguments(gameState); 
 
-    int currentPlayer = 0;
+    size_t roundRobinIdx = 0;
     time_t lastMoveTime = time(NULL); 
     time_t currentTime;
 
@@ -173,15 +173,15 @@ int main(int argc, char *argv[]) {
         }
 
         if (ready > 0) {
-            for (size_t iter = 0; iter < gameState->playerAmount; iter++) {
-                int i = (iter + currentPlayer) % gameState->playerAmount;
-                if(!gameState->players[i].cantMove){
-                    int fd = playerPipes[i];
-                    if (checkCantMove(gameState, i)){ 
-                        gameState->players[i].cantMove = true;
+            for (size_t i = 0; i < gameState->playerAmount; i++) {
+                int currentPlayer = (i + roundRobinIdx) % gameState->playerAmount;
+                if(!gameState->players[currentPlayer].cantMove){
+                    int fd = playerPipes[currentPlayer];
+                    if (checkCantMove(gameState, currentPlayer)){ 
+                        gameState->players[currentPlayer].cantMove = true;
                         playingPlayers--;
                         close(fd);
-                        playerPipes[i] = -1;
+                        playerPipes[currentPlayer] = -1;
                         continue;
                     }
                     if (FD_ISSET(fd, &readfds)) {
@@ -191,8 +191,8 @@ int main(int argc, char *argv[]) {
                             close(fd);
                             playerPipes[i] = -1;
                             playingPlayers--;
-                        } else if (processMove(gameState, i, move)) {
-                            updateMap(gameState, i);
+                        } else if (processMove(gameState, currentPlayer, move)) {
+                            updateMap(gameState, currentPlayer);
                             if (view[0] != '\0'){
                                 usleep(delay * MICRO_TO_MILI);
                                 sem_post(&syncState->readyToPrint);
@@ -205,14 +205,13 @@ int main(int argc, char *argv[]) {
             }
         }
         
-        currentPlayer++;
+        roundRobinIdx++;
         
         currentTime = time(NULL);
         if ((int)difftime(currentTime, lastMoveTime) >= timeout || playingPlayers <= 0) {
             gameState->isOver = true;
         }
 
-        
         sem_post(&syncState->stateSem);
     }
 
@@ -226,7 +225,7 @@ int main(int argc, char *argv[]) {
 
 
     shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * height * width);
-    shm_cleanup(syncState_fd, syncState, sizeof(gameSync));
+    shm_cleanup(syncState_fd, syncState, sizeof(GameSync));
 
     shm_unlink("/game_state");
     shm_unlink("/game_sync");

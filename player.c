@@ -4,10 +4,10 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <semaphore.h>
-#include "structs.h"
+#include "include/structs.h"
 #include <time.h>
 #include <unistd.h>
-#include "shared_memory.h"
+#include "include/shared_memory.h"
 
 
 int main(int argc, char * argv[]){
@@ -20,7 +20,7 @@ int main(int argc, char * argv[]){
     int syncState_fd;
 
     GameState * gameState = (GameState *)shm_open_and_map("/game_state", sizeof(GameState) + sizeof(int) * h * w, O_RDONLY, RO, &gameState_fd);
-    gameSync * syncState = (gameSync *)shm_open_and_map("/game_sync", sizeof(gameSync), O_RDWR, RW, &syncState_fd);
+    GameSync * syncState = (GameSync *)shm_open_and_map("/game_sync", sizeof(GameSync), O_RDWR, RW, &syncState_fd);
 
     pid_t myPid = getpid();
     int id = 0;
@@ -79,7 +79,7 @@ int main(int argc, char * argv[]){
     }
 
     shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * h * w);
-    shm_cleanup(syncState_fd, syncState, sizeof(gameSync));
+    shm_cleanup(syncState_fd, syncState, sizeof(GameSync));
 
     return 0;
 }

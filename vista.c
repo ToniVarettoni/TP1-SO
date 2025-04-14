@@ -3,8 +3,8 @@
 #include <sys/ioctl.h>
 #include <stdlib.h>
 #include <string.h>
-#include "structs.h"
-#include "shared_memory.h"
+#include "include/structs.h"
+#include "include/shared_memory.h"
 
 enum player {
     PLAYER9 = -8,
@@ -28,7 +28,7 @@ int main(int argc, char *argv[]){
     int syncState_fd;
 
     GameState * gameState = (GameState *)shm_open_and_map("/game_state", sizeof(GameState) + sizeof(int) * h * w, O_RDONLY, RO, &gameState_fd);
-    gameSync * syncState = (gameSync *)shm_open_and_map("/game_sync", sizeof(gameSync), O_RDWR, RW, &syncState_fd);
+    GameSync * syncState = (GameSync *)shm_open_and_map("/game_sync", sizeof(GameSync), O_RDWR, RW, &syncState_fd);
 
     struct winsize terminalSize;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &terminalSize);
@@ -97,7 +97,7 @@ int main(int argc, char *argv[]){
     }
 
     shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * h * w);
-    shm_cleanup(syncState_fd, syncState, sizeof(gameSync));
+    shm_cleanup(syncState_fd, syncState, sizeof(GameSync));
 
     return 0;
 }

@@ -6,7 +6,7 @@
 #include <semaphore.h>
 #include <time.h>
 #include <unistd.h>
-#include "structs.h"
+#include "include/structs.h"
 
 
 unsigned char getDir(int x, int y, int i, int j);
@@ -35,7 +35,7 @@ int main(int argc, char * args[]){
         exit(EXIT_FAILURE);
     }
 
-    gameSync *syncState = (gameSync *) mmap(NULL, sizeof(gameSync), PROT_READ | PROT_WRITE, MAP_SHARED, sync_fd, 0);
+    GameSync *syncState = (GameSync *) mmap(NULL, sizeof(GameSync), PROT_READ | PROT_WRITE, MAP_SHARED, sync_fd, 0);
 
     if (syncState == MAP_FAILED) {
         perror("Error mapeando la memoria compartida de sync");
@@ -55,7 +55,6 @@ int main(int argc, char * args[]){
         }
         
     }
-
     
     int currInvalidMoves = 0;
     int currX = gameState->players[id].x;

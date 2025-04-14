@@ -1,55 +1,37 @@
 #include "game_utils.h"
 #include <stdlib.h>
+#include <math.h>
 
-void spawnPlayer(GameState * gameState, int i){
+#define PI 3.1415
 
-    gameState->players[i].score = 0;
-    gameState->players[i].invalidMoves = 0;
-    gameState->players[i].validMoves = 0;
-    gameState->players[i].cantMove = false;
+void spawnPlayer(GameState * gameState, int index, int totalPlayers){
 
-    switch (i)
-    {
-    case 0:
-        gameState->players[i].x = 0;
-        gameState->players[i].y = 0;
-        break;
-    case 1:
-        gameState->players[i].x = gameState->width - 1;
-        gameState->players[i].y = 0;
-        break;
-    case 2: 
-        gameState->players[i].x = 0;
-        gameState->players[i].y = gameState->height - 1;
-        break;
-    case 3:
-        gameState->players[i].x = gameState->width - 1;
-        gameState->players[i].y = gameState->height - 1;
-        break;
-    case 4:
-        gameState->players[i].x = gameState->width/2;
-        gameState->players[i].y = 0; 
-        break;
-    case 5:
-        gameState->players[i].x = gameState->width/2;
-        gameState->players[i].y = gameState->height - 1; 
-        break;
-    case 6:
-        gameState->players[i].x = 0;
-        gameState->players[i].y = gameState->height / 2; 
-        break;
-    case 7:
-        gameState->players[i].x = gameState->width - 1;
-        gameState->players[i].y = gameState->height / 2; 
-        break;
-    case 8:
-        gameState->players[i].x = gameState->width/2;
-        gameState->players[i].y = gameState->height/2; 
-        break;    
+    gameState->players[index].score = 0;
+    gameState->players[index].invalidMoves = 0;
+    gameState->players[index].validMoves = 0;
+    gameState->players[index].cantMove = false;
 
-    default:
-        break;
-    }
+    double marginX = gameState->width * 0.2;
+    double marginY = gameState->height * 0.2;
+
+    double centerX = gameState->width / 2.0 - 1;
+    double centerY = gameState->height / 2.0 - 1;
+
+    double radiusX = (gameState->width - 2 * marginX) / 2.0;
+    double radiusY = (gameState->height - 2 * marginY) / 2.0;
+
+    double angle = (2 * PI * index) / totalPlayers;
+
+    int x = (int)round(centerX + radiusX * cos(angle));
+    int y = (int)round(centerY + radiusY * sin(angle));
+
+    if (x < 0) x = 0;
+    if (x >= gameState->width) x = gameState->width - 1;
+    if (y < 0) y = 0;
+    if (y >= gameState->height) y = gameState->height - 1;
+
+    gameState->players[index].x = x;
+    gameState->players[index].y = y;
 }
 
 void updateMap(GameState * gameState, int index){
