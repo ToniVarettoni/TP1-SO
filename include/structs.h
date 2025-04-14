@@ -31,12 +31,12 @@ typedef struct {
 } PlayerState;
 
 typedef struct {
-    unsigned short width; // Ancho del tablero
-    unsigned short height; // Alto del tablero
-    unsigned int playerAmount; // Cantidad de jugadores
-    PlayerState players[MAX_PLAYERS]; // Lista de jugadores
-    bool isOver; // Indica si el juego se ha terminado
-    int map[]; // Puntero al comienzo del tablero. fila-0, fila-1, ..., fila-n-1
+    unsigned short width;
+    unsigned short height;
+    unsigned int playerAmount;
+    PlayerState players[MAX_PLAYERS];
+    bool isOver;
+    int map[];
 } GameState;
 
 typedef struct {
