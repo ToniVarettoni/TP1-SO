@@ -83,11 +83,11 @@ int main(int argc, char *argv[]){
     int totalPad = (termWidth - totalWidth) / 2;
     if (totalPad < 0) totalPad = 0;
     
+    printf("\033[H\033[J");
     while (!gameState->isOver)
     {
+        printf("\033[H");
         sem_wait(&syncState->readyToPrint);
-        
-        printf("\033[H\033[J");
 
         printHeader(boardWidth, totalPad);
         for (int i = 0; i < h; i++) {
@@ -98,6 +98,7 @@ int main(int argc, char *argv[]){
         sem_post(&syncState->printDone);
     }
     sleep(1);
+    printf("\033[H\033[J");
     printRanking(gameState, boardWidth, totalPad, termWidth);
 
     shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * h * w);
