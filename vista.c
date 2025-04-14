@@ -36,6 +36,7 @@ int main(int argc, char *argv[]){
 
     while (!gameState->isOver)
     {
+        
         sem_wait(&syncState->readyToPrint);
         printf("\033[H\033[J");
 
