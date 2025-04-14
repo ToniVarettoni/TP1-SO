@@ -98,6 +98,7 @@ int main(int argc, char *argv[]){
         sem_post(&syncState->printDone);
     }
     sleep(1);
+    
     printf("\033[H\033[J");
     printRanking(gameState, boardWidth, totalPad, termWidth);
 
