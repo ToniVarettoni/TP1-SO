@@ -14,6 +14,7 @@ typedef struct {
 #define CELL_WIDTH 7
 #define SIDE_BORDER_WIDTH 2
 #define CAT "=^.^="
+#define DEAD_CAT "=x.x="
 #define MAX_LINE_LENGTH 8192
 
 enum player {
@@ -54,7 +55,7 @@ const char* PLAYER_HEAD[9] = {
 
 #define TEXT_DARK "\033[38;2;97;61;45m"
 
-#define GRID_LIGHT_COLOR "\033[48;2;208;208;208m"
+#define GRID_LIGHT_COLOR "\033[48;2;180;180;180m"
 #define GRID_DARK_COLOR  "\033[48;2;160;160;160m"
 
 #define BORDER_COLOR "\033[48;2;97;61;45m"
@@ -118,7 +119,7 @@ int main(int argc, char *argv[]){
 
         sem_post(&syncState->printDone);
     }
-    sleep(1);
+    sleep(3);
     printRanking(gameState, boardWidth, totalPad, termWidth);
 
     shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * h * w);
@@ -184,7 +185,7 @@ void printBoardLine(GameState* gameState, int i, int pad) {
             if(p.x == j && p.y == i){
                 bgColor = PLAYER_HEAD[0 - cellValue];
                 sprintf(sideLine + strlen(sideLine), "%s       %s", bgColor, RESET);
-                sprintf(midLine + strlen(midLine), "%s %s %s", bgColor, CAT, RESET);
+                sprintf(midLine + strlen(midLine), "%s%s %s %s", BOLD, bgColor, p.cantMove ? DEAD_CAT : CAT, RESET);
             }else{
                 bgColor = PLAYER_BODY[0 - cellValue];
                 sprintf(sideLine + strlen(sideLine), "%s       %s", bgColor, RESET);

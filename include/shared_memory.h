@@ -2,6 +2,7 @@
 #define SHARED_MEMORY_H
 
 #include <stddef.h>
+#include <unistd.h>
 
 #define RW (PROT_READ | PROT_WRITE)
 #define RO PROT_READ

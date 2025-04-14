@@ -1,10 +1,10 @@
+#include <unistd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>        
 #include <string.h>
 #include <fcntl.h>           
 #include "include/structs.h"
 #include <sys/types.h>  
-#include <unistd.h>
 #include <time.h>
 #include <signal.h>
 #include <sys/select.h>
@@ -22,7 +22,8 @@
 #define MAX_LENGTH_PATH 100
 #define MICRO_TO_MILI 1000
 
-void checkArguments(GameState * gameState);
+void checkArguments(int height, int width, int playingPlayers);
+void printStart(GameState * gameState, int delay, int timeout, int seed, char * view);
 
 int main(int argc, char *argv[]) {
     
@@ -81,6 +82,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    checkArguments(height, width, playingPlayers); 
+
     int gameState_fd;
     int syncState_fd;
 
@@ -131,11 +134,11 @@ int main(int argc, char *argv[]) {
         gameState->map[gameState->players[gameState->playerAmount].x + gameState->players[gameState->playerAmount].y * (gameState->width)] = 0 - gameState->playerAmount;
     }
 
-    checkArguments(gameState); 
-
     int roundRobinIdx = 0;
     time_t lastMoveTime = time(NULL); 
     time_t currentTime;
+
+    printStart(gameState, delay, timeout, seed, view);
 
     while(!gameState->isOver){
 
@@ -212,16 +215,24 @@ int main(int argc, char *argv[]) {
     sem_post(&syncState->masterSem);               
     sem_post(&syncState->stateSem);  
     
+    int status;
+
     if(view[0] != '\0'){
         sem_post(&syncState->readyToPrint);
-        waitpid(viewPid, NULL, 0);
+        waitpid(viewPid, &status, 0);
+        printf("\nView exited (%d)\n", status);
+    }else{
+        printf("\033[H\033[J");
     }
 
     for (int i = 0; i < gameState->playerAmount; i++){
-        pid_t pid = gameState->players[i].pid;
+        PlayerState p = gameState->players[i];
 
-        if (pid > 0) kill(pid, SIGTERM);
+        if (p.pid > 0) kill(p.pid, SIGTERM);
         if (playerPipes[i] != -1) close(playerPipes[i]);
+
+        waitpid(p.pid, &status, 0);
+        printf("Player %s (%d) exited (%d) with a score of %d / %d / %d\n", p.name, i, status, p.score, p.validMoves, p.invalidMoves);
     }
 
     shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * height * width);
@@ -254,18 +265,28 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void checkArguments(GameState * gameState){
-    if (gameState->height < DEF_HEIGHT || gameState->width < DEF_WIDTH){
-        printf("Error: Minimal board dimensions: 10x10. Given %dx%d\n", gameState->height, gameState->width);
+void checkArguments(int height, int width, int playingPlayers){
+    if (height < DEF_HEIGHT || width < DEF_WIDTH){
+        printf("Error: Minimal board dimensions: 10x10. Given %dx%d\n", height, width);
         exit(EXIT_FAILURE);
     }
-    if (gameState->playerAmount == 0){
+    if (playingPlayers == 0){
         printf("Error: At least one player must be specified using -p.\n");
         exit(EXIT_FAILURE);
     }
-    if (gameState->playerAmount > 9){
-        printf("Error: At most 9 players can be specified using -p.\n");
+    if (playingPlayers > MAX_PLAYERS){
+        printf("Error: At most %d players can be specified using -p.\n", MAX_PLAYERS);
         exit(EXIT_FAILURE);
     }
     return;
 }
+
+void printStart(GameState * gameState, int delay, int timeout, int seed, char * view){
+    printf("width: %d\nheight: %d\ndelay: %d\ntimeout: %d\nseed: %d\nview: %s\n", gameState->width, gameState->height, delay, timeout, seed, view);
+    printf("num_players: %d\n", gameState->playerAmount);
+    for(int i = 0; i < gameState->playerAmount; i++){
+        printf("\t%s\n", gameState->players[i].name);
+    }
+    sleep(2);
+}
+

@@ -1,9 +1,11 @@
+#include <unistd.h>
 #include "shared_memory.h"
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <unistd.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 void * shm_create_and_map(const char* name, size_t size, int prot, int * fd){
     *fd = shm_open(name, O_RDWR | O_CREAT, 0666);
