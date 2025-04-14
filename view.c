@@ -6,9 +6,13 @@
 #include "include/structs.h"
 #include "include/shared_memory.h"
 
+typedef struct {
+    PlayerState player;
+    int index;
+} PlayerStateIdx;
+
 #define CELL_WIDTH 7
 #define SIDE_BORDER_WIDTH 2
-#define SIDE_BORDER "  "
 #define CAT "=^.^="
 #define MAX_LINE_LENGTH 8192
 
@@ -24,7 +28,7 @@ enum player {
     PLAYER1
 };
 
-const char* PLAYER_BG[9] = {
+const char* PLAYER_BODY[9] = {
     "\033[48;2;253;90;70m",
     "\033[48;2;255;122;0m",
     "\033[48;2;255;197;103m",
@@ -60,10 +64,27 @@ const char* PLAYER_HEAD[9] = {
 #define RESET "\033[0m"
 #define BOLD "\033[1m"
 
-void printHeader(int boardWidth, int totalPad);
+void printHeader(char * title, int borderWidth, char * borderColor, int centerWidth, char * centerColor, int pad);
 void printBoardLine(GameState* gameState, int i, int pad);
 void printScoreboard(GameState* gameState, int boardWidth, int totalPad, int termWidth);
+void printScoreTable(PlayerStateIdx players[], int size, int totalPad, int termWidth, char * title, bool large);
 void printRanking(GameState * gameState, int boardWidth, int totalPad, int termWidth);
+
+#define PRINT_WITH_BORDER(borderWidth, borderColor, ...) \
+    do { \
+        for (int i = 0; i < borderWidth; i++) printf("%s ", borderColor); \
+        printf("%s", RESET); \
+        __VA_ARGS__; \
+        for (int i = 0; i < borderWidth; i++) printf("%s ", borderColor); \
+        printf("%s", RESET); \
+    } while (0)
+
+#define PRINT_LINE(pad, ...) \
+    do { \
+        for (int s = 0; s < pad; s++) printf(" "); \
+        __VA_ARGS__; \
+        printf("\n"); \
+    } while (0)
 
 int main(int argc, char *argv[]){
     int w = atoi(argv[1]);
@@ -89,7 +110,7 @@ int main(int argc, char *argv[]){
         printf("\033[H");
         sem_wait(&syncState->readyToPrint);
 
-        printHeader(boardWidth, totalPad);
+        printHeader("ChompCats", SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BACKGROUND_COLOR, totalPad);
         for (int i = 0; i < h; i++) {
             printBoardLine(gameState, i, totalPad);
         }
@@ -98,20 +119,12 @@ int main(int argc, char *argv[]){
         sem_post(&syncState->printDone);
     }
     sleep(1);
-    
-    printf("\033[H\033[J");
     printRanking(gameState, boardWidth, totalPad, termWidth);
 
     shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * h * w);
     shm_cleanup(syncState_fd, syncState, sizeof(GameSync));
 
     return 0;
-}
-
-void printPad(int pad) {
-    for (int s = 0; s < pad; s++) {
-        printf(" ");
-    }
 }
 
 int visibleLength(const char *s) {
@@ -130,47 +143,30 @@ int visibleLength(const char *s) {
     return len;
 }
 
-void printBorder(int borderWidth, char * borderColor){
-    for (int i = 0; i < borderWidth; i++) printf("%s ", borderColor);
-    printf("%s", RESET);
+void printMargin(int width, int pad){
+    PRINT_LINE(pad, {PRINT_WITH_BORDER(0, "\0", {for (int i = 0; i < width; i++) printf("%s ", BORDER_COLOR);});});
 }
 
-void printWithBorder(int borderWidth, char * borderColor, char * string){
-    printBorder(borderWidth, borderColor);
-    printf("%s", string);
-    printBorder(borderWidth, borderColor);
-    printf("%s", RESET);
-}
-
-void printColorLine(int borderWidth, char * borderColor, int centerWidth, char * centerColor, int pad){
-    printPad(pad);
-    printBorder(borderWidth, borderColor);
-    for (int i = 0; i < centerWidth; i++) printf("%s ", centerColor);
-    printBorder(borderWidth, borderColor);
-    printf("%s\n", RESET);
-}
-
-void printHeader(int boardWidth, int totalPad) {
-    printColorLine(SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BORDER_COLOR, totalPad);
-    printColorLine(SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BACKGROUND_COLOR, totalPad);
+void printHeader(char * title, int borderWidth, char * borderColor, int centerWidth, char * centerColor, int pad) {
+    printMargin(centerWidth + 2 * borderWidth, pad);
+    PRINT_LINE(pad, {PRINT_WITH_BORDER(borderWidth, borderColor, {for (int i = 0; i < centerWidth; i++) printf("%s ", centerColor);});});
     
-    const char * title = "ChompCats";
     int titleLen = strlen(title);
-    int titlePad = (boardWidth - titleLen) / 2;
+    int titlePad = (centerWidth - titleLen) / 2;
 
-    printPad(totalPad);
-    printf("%s%s", BORDER_COLOR, SIDE_BORDER);
-    for (int i = 0; i < boardWidth; i++) {
-        if (i == titlePad) {
-            printf("%s%s%s%s%s", BOLD, TEXT_DARK, BACKGROUND_COLOR, title, RESET);
-            i += titleLen - 1;
-        } else {
-            printf("%s ", BACKGROUND_COLOR);
-        }
-    }
-    printf("%s%s%s\n", BORDER_COLOR, SIDE_BORDER, RESET);
-
-    printColorLine(SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BACKGROUND_COLOR, totalPad);
+    PRINT_LINE(pad, {
+        PRINT_WITH_BORDER(borderWidth, borderColor, {
+            for (int i = 0; i < centerWidth; i++) {
+                if (i == titlePad) {
+                    printf("%s%s%s%s%s", BOLD, TEXT_DARK, centerColor, title, RESET);
+                    i += titleLen - 1;
+                } else {
+                    printf("%s ", centerColor);
+                }
+            }
+        });
+    });
+    PRINT_LINE(pad, {PRINT_WITH_BORDER(borderWidth, borderColor, {for (int i = 0; i < centerWidth; i++) printf("%s ", centerColor);});});
 }
 
 void printBoardLine(GameState* gameState, int i, int pad) {
@@ -190,7 +186,7 @@ void printBoardLine(GameState* gameState, int i, int pad) {
                 sprintf(sideLine + strlen(sideLine), "%s       %s", bgColor, RESET);
                 sprintf(midLine + strlen(midLine), "%s %s %s", bgColor, CAT, RESET);
             }else{
-                bgColor = PLAYER_BG[0 - cellValue];
+                bgColor = PLAYER_BODY[0 - cellValue];
                 sprintf(sideLine + strlen(sideLine), "%s       %s", bgColor, RESET);
                 sprintf(midLine + strlen(midLine), "%s       %s", bgColor, RESET);
             }
@@ -201,12 +197,12 @@ void printBoardLine(GameState* gameState, int i, int pad) {
         }
     }
 
-    printPad(pad); printf("%s%s%s%s%s%s\n", BORDER_COLOR, SIDE_BORDER, sideLine, BORDER_COLOR, SIDE_BORDER, RESET);
-    printPad(pad); printf("%s%s%s%s%s%s\n", BORDER_COLOR, SIDE_BORDER, midLine, BORDER_COLOR, SIDE_BORDER, RESET);
-    printPad(pad); printf("%s%s%s%s%s%s\n", BORDER_COLOR, SIDE_BORDER, sideLine, BORDER_COLOR, SIDE_BORDER, RESET);
+    PRINT_LINE(pad, {PRINT_WITH_BORDER(SIDE_BORDER_WIDTH, BORDER_COLOR, printf("%s", sideLine));});
+    PRINT_LINE(pad, {PRINT_WITH_BORDER(SIDE_BORDER_WIDTH, BORDER_COLOR, printf("%s", midLine));});
+    PRINT_LINE(pad, {PRINT_WITH_BORDER(SIDE_BORDER_WIDTH, BORDER_COLOR, printf("%s", sideLine));});
 }
 
-void printScoreTable(PlayerStateAux players[], int size, int boardWidth, int totalPad, int termWidth, char * title){
+void printScoreTable(PlayerStateIdx players[], int size, int totalPad, int termWidth, char * title, bool large){
     int colNameWidth     = 12;
     int colNumWidth      = 10;
     int colScoreWidth    = 10;
@@ -215,106 +211,53 @@ void printScoreTable(PlayerStateAux players[], int size, int boardWidth, int tot
 
     char line[MAX_LINE_LENGTH];
     line[0] = '\0';
-    char clearLine[MAX_LINE_LENGTH];
-    clearLine[0] = '\0';
-    char aux[2 * MAX_LINE_LENGTH];
+    
+    sprintf(line, "%s%s%s%-*s%-*s%-*s%-*s%-*s", BOLD, BACKGROUND_COLOR, TEXT_DARK, colNameWidth, "Name", colNumWidth, "Number", colScoreWidth, "Score", colValidWidth, "Valid Moves", colInvalidWidth, "Invalid Moves");
 
-    sprintf(line, "%-*s%-*s%-*s%-*s%-*s", colNameWidth, "Name", colNumWidth, "Number", colScoreWidth, "Score", colValidWidth, "Valid Moves", colInvalidWidth, "Invalid Moves");
-
-    int vis_len = strlen(line);
+    int vis_len = visibleLength(line);
     int totalWidth = vis_len + 2;
     int pad = (termWidth - totalWidth) / 2;
     if (pad < 0) pad = 0;
 
-    printColorLine(SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BORDER_COLOR, totalPad);
-    printColorLine(pad - totalPad, BORDER_COLOR, totalWidth, MID_BROWN_COLOR, totalPad);
-
-    int titleLen = strlen(title);
-    int titlePad = (totalWidth - titleLen) / 2;
-
-    for (int i = 0; i < totalWidth; i++) {
-        if (i == titlePad) {
-            sprintf(clearLine + strlen(clearLine), "%s%s%s%s%s", BOLD, TEXT_DARK, MID_BROWN_COLOR, title, RESET);
-            i += titleLen - 1;
-        } else {
-            sprintf(clearLine + strlen(clearLine), "%s ", MID_BROWN_COLOR);
-        }
+    if(strcmp(title, "\0") != 0){
+        printHeader(title, pad - totalPad, BORDER_COLOR, totalWidth, MID_BROWN_COLOR, totalPad);
     }
-    printPad(totalPad); printWithBorder(pad - totalPad, BORDER_COLOR, clearLine); printf("\n");
-    printColorLine(pad - totalPad, BORDER_COLOR, totalWidth, MID_BROWN_COLOR, totalPad);
-    
 
-    sprintf(aux, "%s%s%s %s %s", BOLD, BACKGROUND_COLOR, TEXT_DARK, line, RESET);
-    printPad(totalPad); printWithBorder(pad - totalPad, BORDER_COLOR, aux); printf("\n");
+    PRINT_LINE(totalPad, {PRINT_WITH_BORDER(pad - totalPad, BORDER_COLOR, {PRINT_WITH_BORDER(1, BACKGROUND_COLOR, {printf("%s", line);});});});
 
     for (int i = 0; i < size; i++) {
-        clearLine[0] = '\0';
         line[0] = '\0';
         PlayerState p = players[i].player;
         int playerNum = players[i].index + 1;
 
-        sprintf(line, "%-*s%-*d%-*d%-*d%-*d", colNameWidth, p.name, colNumWidth, playerNum, colScoreWidth, p.score, colValidWidth, p.validMoves, colInvalidWidth, p.invalidMoves);
-        sprintf(aux, "%s%s %s%s%s %s", BACKGROUND_COLOR, TEXT_DARK, PLAYER_HEAD[players[i].index], line, BACKGROUND_COLOR, RESET);
-        sprintf(clearLine, "%s %s", BACKGROUND_COLOR, PLAYER_HEAD[players[i].index]);
-        for(int j = 0; j < strlen(line); j++){
-            sprintf(clearLine + strlen(clearLine), " ");
-        }
-        sprintf(clearLine + strlen(clearLine), "%s ", BACKGROUND_COLOR);
-        
-        printPad(totalPad); printWithBorder(pad - totalPad, BORDER_COLOR, clearLine); printf("\n");
-        printPad(totalPad); printWithBorder(pad - totalPad, BORDER_COLOR, aux); printf("\n");
-        printPad(totalPad); printWithBorder(pad - totalPad, BORDER_COLOR, clearLine); printf("\n");
+        sprintf(line, "%s%s%-*s%-*d%-*d%-*d%-*d", TEXT_DARK, PLAYER_HEAD[players[i].index], colNameWidth, p.name, colNumWidth, playerNum, colScoreWidth, p.score, colValidWidth, p.validMoves, colInvalidWidth, p.invalidMoves);
+                
+        if(large) PRINT_LINE(totalPad, {PRINT_WITH_BORDER(pad - totalPad, BORDER_COLOR, {PRINT_WITH_BORDER(1, BACKGROUND_COLOR, {for(int j = 0; j < vis_len; j++) printf("%s ", PLAYER_HEAD[players[i].index]);});});});
+        PRINT_LINE(totalPad, {PRINT_WITH_BORDER(pad - totalPad, BORDER_COLOR, {PRINT_WITH_BORDER(1, BACKGROUND_COLOR, {printf("%s", line);});});});
+        if(large) PRINT_LINE(totalPad, {PRINT_WITH_BORDER(pad - totalPad, BORDER_COLOR, {PRINT_WITH_BORDER(1, BACKGROUND_COLOR, {for(int j = 0; j < vis_len; j++) printf("%s ", PLAYER_HEAD[players[i].index]);});});});
     }
-    printColorLine(pad - totalPad, BORDER_COLOR, totalWidth, BACKGROUND_COLOR, totalPad);
+    PRINT_LINE(totalPad, {PRINT_WITH_BORDER(pad - totalPad, BORDER_COLOR, {for (int i = 0; i < totalWidth; i++) printf("%s ", BACKGROUND_COLOR);});});
 }
 
 void printScoreboard(GameState* gameState, int boardWidth, int totalPad, int termWidth) {
-    printColorLine(SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BORDER_COLOR, totalPad);
-    printColorLine(SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BORDER_COLOR, totalPad);
+    printMargin(boardWidth + 2 * SIDE_BORDER_WIDTH, totalPad);
+    printMargin(boardWidth + 2 * SIDE_BORDER_WIDTH, totalPad);
 
-    int colNameWidth     = 12;
-    int colNumWidth      = 10;
-    int colScoreWidth    = 10;
-    int colValidWidth    = 14;
-    int colInvalidWidth  = 14;
-
-    char line[MAX_LINE_LENGTH];
-    line[0] = '\0';
-
-    sprintf(line, "%-*s%-*s%-*s%-*s%-*s", colNameWidth, "Name", colNumWidth, "Number", colScoreWidth, "Score", colValidWidth, "Valid Moves", colInvalidWidth, "Invalid Moves");
-
-    int vis_len = strlen(line);
-    int totalWidth = vis_len + 2;
-    int pad = (termWidth - totalWidth) / 2;
-    if (pad < 0) pad = 0;
-
-    printPad(totalPad);
-    printBorder(pad - totalPad, BORDER_COLOR);
-    printf("%s%s%s %s %s", BOLD, BACKGROUND_COLOR, TEXT_DARK, line, RESET);
-    printBorder(pad - totalPad, BORDER_COLOR);
-    printf("\n");
-
-    for (int i = 0; i < gameState->playerAmount; i++) {
-        line[0] = '\0';
-        PlayerState *p = &gameState->players[i];
-        int playerNum = i + 1;
-
-        sprintf(line, "%-*s%-*d%-*d%-*d%-*d", colNameWidth, p->name, colNumWidth, playerNum, colScoreWidth, p->score, colValidWidth, p->validMoves, colInvalidWidth, p->invalidMoves);
-
-        printPad(totalPad);
-        printBorder(pad - totalPad, BORDER_COLOR);
-        printf("%s%s %s%s%s %s", BACKGROUND_COLOR, TEXT_DARK, PLAYER_HEAD[i], line, BACKGROUND_COLOR, RESET);
-        printBorder(pad - totalPad, BORDER_COLOR);
-        printf("\n");
+    PlayerStateIdx players[gameState->playerAmount];
+    for(int i = 0; i < gameState->playerAmount; i++){
+        players[i].player = gameState->players[i];
+        players[i].index = i;
     }
-    printColorLine(pad - totalPad, BORDER_COLOR, totalWidth, BACKGROUND_COLOR, totalPad);
-    printColorLine(SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BORDER_COLOR, totalPad);
-    printColorLine(SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BORDER_COLOR, totalPad);
+
+    printScoreTable(players, gameState->playerAmount, totalPad, termWidth, "\0", false);
+
+    printMargin(boardWidth + 2 * SIDE_BORDER_WIDTH, totalPad);
+    printMargin(boardWidth + 2 * SIDE_BORDER_WIDTH, totalPad);
 }
 
 int compareScores(const void *a, const void *b) {
-    PlayerState playerA = ((PlayerStateAux *) a)->player;
-    PlayerState playerB = ((PlayerStateAux *) b)->player;
+    PlayerState playerA = ((PlayerStateIdx *) a)->player;
+    PlayerState playerB = ((PlayerStateIdx *) b)->player;
     int ans = playerB.score - playerA.score;
     if(ans == 0){
         ans = playerB.validMoves - playerA.validMoves;
@@ -327,26 +270,24 @@ int compareScores(const void *a, const void *b) {
 
 void printRanking(GameState * gameState, int boardWidth, int totalPad, int termWidth){
     printf("\033[H\033[J");
-    printHeader(boardWidth, totalPad);
-    printColorLine(SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BORDER_COLOR, totalPad);
+    printHeader("ChompCats", SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BACKGROUND_COLOR, totalPad);
+    printMargin(boardWidth + 2 * SIDE_BORDER_WIDTH, totalPad);
 
-    
-    
-    PlayerStateAux playersInOrder[gameState->playerAmount];
+    PlayerStateIdx playersInOrder[gameState->playerAmount];
     for(int i = 0; i < gameState->playerAmount; i++){
         playersInOrder[i].player = gameState->players[i];
         playersInOrder[i].index = i;
     }
-    qsort(playersInOrder, gameState->playerAmount, sizeof(PlayerStateAux), compareScores);
+    qsort(playersInOrder, gameState->playerAmount, sizeof(PlayerStateIdx), compareScores);
 
-    printScoreTable(playersInOrder, 1, boardWidth, totalPad, termWidth, "Winner");
+    printScoreTable(playersInOrder, 1, totalPad, termWidth, "Winner", true);
 
-    printColorLine(SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BORDER_COLOR, totalPad);
+    printMargin(boardWidth + 2 * SIDE_BORDER_WIDTH, totalPad);
     
-    printScoreTable(playersInOrder, gameState->playerAmount, boardWidth, totalPad, termWidth, "Ranking");
+    printScoreTable(playersInOrder, gameState->playerAmount, totalPad, termWidth, "Ranking", true);
 
-    printColorLine(SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BORDER_COLOR, totalPad);
-    printColorLine(SIDE_BORDER_WIDTH, BORDER_COLOR, boardWidth, BORDER_COLOR, totalPad);
+    printMargin(boardWidth + 2 * SIDE_BORDER_WIDTH, totalPad);
+    printMargin(boardWidth + 2 * SIDE_BORDER_WIDTH, totalPad);
 }
 
 

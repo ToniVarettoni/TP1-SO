@@ -4,25 +4,19 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <semaphore.h>
-#include <time.h>
 #include <unistd.h>
 #include "include/structs.h"
 #include "include/shared_memory.h"
 
-
-
 unsigned char getDir(int x, int y, int i, int j);
 
 int main(int argc, char * argv[]){
-
-    srand(time(NULL));
 
     int w = atoi(argv[1]);
     int h = atoi(argv[2]);
     int gameState_fd;
     int syncState_fd;
 
-    
     GameState * gameState = (GameState *)shm_open_and_map("/game_state", sizeof(GameState) + sizeof(int) * h * w, O_RDONLY, RO, &gameState_fd);
     GameSync * syncState = (GameSync *)shm_open_and_map("/game_sync", sizeof(GameSync), O_RDWR, RW, &syncState_fd);
 
@@ -36,17 +30,15 @@ int main(int argc, char * argv[]){
             id = i;
             break;
         }
-        
     }
     
     int currInvalidMoves = 0;
     int currValidMoves = 0;
     int firstMove = 1;
-    while (1)
+    
+    while (!gameState->isOver)
     {
-        sem_wait(&syncState->masterSem); // espero al master
-
-
+        sem_wait(&syncState->masterSem);
 
         sem_wait(&syncState->currReadingSem);
         syncState->currReading++;
@@ -55,8 +47,6 @@ int main(int argc, char * argv[]){
         {
             sem_wait(&syncState->stateSem);
         }
-
-        
         
         if (gameState->players[id].cantMove)
         {
@@ -71,9 +61,6 @@ int main(int argc, char * argv[]){
             break;
         }
 
-
-        int h = gameState->height;
-        int w = gameState->width;
         int x = gameState->players[id].x;
         int y = gameState->players[id].y;
         
@@ -90,7 +77,7 @@ int main(int argc, char * argv[]){
                 for (int j = y - 1; j <= y + 1; j++)
                 {
                     if (i >= 0 && j >= 0 && i < w && j < h){
-                        if (max < gameState->map[i + w*j])  //si la casilla corresponde a un jugador -> gameState->map[i + w*j] < 0 siempre
+                        if (max < gameState->map[i + w*j])
                         {
                             max = gameState->map[i + w*j];
                             move = getDir(x, y, i, j);
@@ -110,33 +97,23 @@ int main(int argc, char * argv[]){
             sem_post(&syncState->stateSem);
         }
         sem_post(&syncState->masterSem);
-        
     }
     
-
     return 0;
 }
-
-
-
 
 unsigned char getDir(int x, int y, int i, int j){
 
     if (i == x - 1){
-
         if (j == y - 1)
             return 7;
         else if(j == y)
             return 6;        
         return 5;
-
     }else if(i == x){
-
         if (j == y - 1)
              return 0;
-        // x == i && y == i corresponde al player, no lo contemplo
         return 4;
-
     }else if (j == y - 1){
         return 1;
 

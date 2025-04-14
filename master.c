@@ -19,7 +19,6 @@
 #define DEF_HEIGHT 10
 #define DEF_DELAY 200
 #define DEF_TIMEOUT 10
-#define MAX_LENGTH_NUM 10
 #define MAX_LENGTH_PATH 100
 #define MICRO_TO_MILI 1000
 
@@ -134,11 +133,11 @@ int main(int argc, char *argv[]) {
 
     checkArguments(gameState); 
 
-    size_t roundRobinIdx = 0;
+    int roundRobinIdx = 0;
     time_t lastMoveTime = time(NULL); 
     time_t currentTime;
 
-    while(playingPlayers > 0){
+    while(!gameState->isOver){
 
         sem_wait(&syncState->masterSem);
         sem_wait(&syncState->stateSem);
@@ -167,7 +166,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (ready > 0) {
-            for (size_t i = 0; i < gameState->playerAmount; i++) {
+            for (int i = 0; i < gameState->playerAmount; i++) {
                 int currentPlayer = (i + roundRobinIdx) % gameState->playerAmount;
                 if(!gameState->players[currentPlayer].cantMove){
                     int fd = playerPipes[currentPlayer];
@@ -218,7 +217,7 @@ int main(int argc, char *argv[]) {
         waitpid(viewPid, NULL, 0);
     }
 
-    for (size_t i = 0; i < gameState->playerAmount; i++){
+    for (int i = 0; i < gameState->playerAmount; i++){
         pid_t pid = gameState->players[i].pid;
 
         if (pid > 0) kill(pid, SIGTERM);
@@ -251,7 +250,6 @@ int main(int argc, char *argv[]) {
         perror("Error destroying print done Sem");
         exit(EXIT_FAILURE);
     }
-
 
     return 0;
 }

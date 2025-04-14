@@ -39,8 +39,4 @@ typedef struct {
     int map[];
 } GameState;
 
-typedef struct {
-    PlayerState player;
-    int index;
-} PlayerStateAux;
 #endif
