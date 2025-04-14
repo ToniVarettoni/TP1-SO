@@ -14,8 +14,8 @@ int main(int argc, char * argv[]){
 
     srand(time(NULL));
 
-    int h = atoi(argv[1]);
-    int w = atoi(argv[2]);
+    int w = atoi(argv[1]);
+    int h = atoi(argv[2]);
     int gameState_fd;
     int syncState_fd;
 
