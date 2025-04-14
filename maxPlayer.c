@@ -7,41 +7,24 @@
 #include <time.h>
 #include <unistd.h>
 #include "include/structs.h"
+#include "include/shared_memory.h"
+
 
 
 unsigned char getDir(int x, int y, int i, int j);
 
-int main(int argc, char * args[]){
+int main(int argc, char * argv[]){
 
     srand(time(NULL));
 
-    int gameState_fd = shm_open("/game_state", O_RDONLY, 0666);
-    if (gameState_fd == -1) {
-        perror("Error abriendo la memoria compartida de state");
-        exit(EXIT_FAILURE);
-    }
+    int w = atoi(argv[1]);
+    int h = atoi(argv[2]);
+    int gameState_fd;
+    int syncState_fd;
 
-    int sync_fd = shm_open("/game_sync", O_RDWR, 0666);
-    if (sync_fd == -1) {
-        perror("Error abriendo la memoria compartida de sync");
-        exit(EXIT_FAILURE);
-    }
-
-    GameState *gameState = (GameState *) mmap(NULL, sizeof(GameState), PROT_READ, MAP_SHARED, gameState_fd, 0);
-
-    if (gameState == MAP_FAILED) {
-        perror("Error mapeando la memoria compartida de state");
-        close(gameState_fd);
-        exit(EXIT_FAILURE);
-    }
-
-    GameSync *syncState = (GameSync *) mmap(NULL, sizeof(GameSync), PROT_READ | PROT_WRITE, MAP_SHARED, sync_fd, 0);
-
-    if (syncState == MAP_FAILED) {
-        perror("Error mapeando la memoria compartida de sync");
-        close(gameState_fd);
-        exit(EXIT_FAILURE);
-    }
+    
+    GameState * gameState = (GameState *)shm_open_and_map("/game_state", sizeof(GameState) + sizeof(int) * h * w, O_RDONLY, RO, &gameState_fd);
+    GameSync * syncState = (GameSync *)shm_open_and_map("/game_sync", sizeof(GameSync), O_RDWR, RW, &syncState_fd);
 
     pid_t myPid = getpid();
     int id = 0;
@@ -57,22 +40,21 @@ int main(int argc, char * args[]){
     }
     
     int currInvalidMoves = 0;
-    int currX = gameState->players[id].x;
-    int currY = gameState->players[id].y;
+    int currValidMoves = 0;
     int firstMove = 1;
     while (1)
     {
         sem_wait(&syncState->masterSem); // espero al master
 
-        sem_post(&syncState->masterSem);
 
 
         sem_wait(&syncState->currReadingSem);
-        if (syncState->currReading++ == 0)
+        syncState->currReading++;
+        sem_post(&syncState->currReadingSem);
+        if (syncState->currReading == 1)
         {
             sem_wait(&syncState->stateSem);
         }
-        sem_post(&syncState->currReadingSem);
 
         
         
@@ -98,11 +80,10 @@ int main(int argc, char * args[]){
         int max = 0;
         unsigned char move = 0;
         
-        if (currInvalidMoves != gameState->players[id].invalidMoves || currX != x || currY != y || firstMove)
+        if (currInvalidMoves != gameState->players[id].invalidMoves || currValidMoves != gameState->players[id].validMoves || firstMove)
         {
             firstMove = false;
-            currX = x;
-            currY = y; 
+            currValidMoves = gameState->players[id].validMoves;
             currInvalidMoves = gameState->players[id].invalidMoves;
             for (int i = x - 1; i <= x + 1; i++)
             {
@@ -122,12 +103,13 @@ int main(int argc, char * args[]){
         }        
 
         sem_wait(&syncState->currReadingSem);
-        if (syncState->currReading-- == 1)
+        syncState->currReading--;
+        sem_post(&syncState->currReadingSem);
+        if (syncState->currReading == 0)
         {
             sem_post(&syncState->stateSem);
         }
-        sem_post(&syncState->currReadingSem);
-        
+        sem_post(&syncState->masterSem);
         
     }
     
