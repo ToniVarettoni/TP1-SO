@@ -184,17 +184,23 @@ void printBoardLine(GameState* gameState, int i, int pad) {
             const char * bgColor;
             if(p.x == j && p.y == i){
                 bgColor = PLAYER_HEAD[0 - cellValue];
-                sprintf(sideLine + strlen(sideLine), "%s       %s", bgColor, RESET);
-                sprintf(midLine + strlen(midLine), "%s%s %s %s", BOLD, bgColor, p.cantMove ? DEAD_CAT : CAT, RESET);
+                if(sideLine + strlen(sideLine) + CELL_WIDTH < MAX_LINE_LENGTH && midLine + strlen(midLine) + CELL_WIDTH < MAX_LINE_LENGTH){
+                    sprintf(sideLine + strlen(sideLine), "%s       %s", bgColor, RESET);
+                    sprintf(midLine + strlen(midLine), "%s%s %s %s", BOLD, bgColor, p.cantMove ? DEAD_CAT : CAT, RESET);
+                }
             }else{
                 bgColor = PLAYER_BODY[0 - cellValue];
-                sprintf(sideLine + strlen(sideLine), "%s       %s", bgColor, RESET);
-                sprintf(midLine + strlen(midLine), "%s       %s", bgColor, RESET);
+                if(sideLine + strlen(sideLine) + CELL_WIDTH < MAX_LINE_LENGTH && midLine + strlen(midLine) + CELL_WIDTH < MAX_LINE_LENGTH){
+                    sprintf(sideLine + strlen(sideLine), "%s       %s", bgColor, RESET);
+                    sprintf(midLine + strlen(midLine), "%s       %s", bgColor, RESET);
+                }
             }
         } else {
             int isLight = (i + j) % 2;
-            sprintf(sideLine + strlen(sideLine), "%s       %s", isLight? GRID_LIGHT_COLOR : GRID_DARK_COLOR, RESET);
-            sprintf(midLine + strlen(midLine), "%s   %d   %s", isLight? GRID_LIGHT_COLOR : GRID_DARK_COLOR, cellValue, RESET);
+            if(sideLine + strlen(sideLine) + CELL_WIDTH < MAX_LINE_LENGTH && midLine + strlen(midLine) + CELL_WIDTH < MAX_LINE_LENGTH){
+                sprintf(sideLine + strlen(sideLine), "%s       %s", isLight? GRID_LIGHT_COLOR : GRID_DARK_COLOR, RESET);
+                sprintf(midLine + strlen(midLine), "%s   %d   %s", isLight? GRID_LIGHT_COLOR : GRID_DARK_COLOR, cellValue, RESET);
+            }
         }
     }
 
