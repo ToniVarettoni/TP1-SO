@@ -119,7 +119,7 @@ int main(int argc, char *argv[]){
 
         sem_post(&syncState->printDone);
     }
-    sleep(3);
+    sleep(2);
     printRanking(gameState, boardWidth, totalPad, termWidth);
 
     shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * h * w);
