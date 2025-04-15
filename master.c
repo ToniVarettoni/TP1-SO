@@ -282,7 +282,7 @@ void checkArguments(int height, int width, int playingPlayers){
 }
 
 void printStart(GameState * gameState, int delay, int timeout, int seed, char * view){
-    printf("width: %d\nheight: %d\ndelay: %d\ntimeout: %d\nseed: %d\nview: %s\n", gameState->width, gameState->height, delay, timeout, seed, view);
+    printf("width: %d\nheight: %d\ndelay: %d\ntimeout: %d\nseed: %d\nview: %s\n", gameState->width, gameState->height, delay, timeout, seed, view[0] != '\0'? view : "-");
     printf("num_players: %d\n", gameState->playerAmount);
     for(int i = 0; i < gameState->playerAmount; i++){
         printf("\t%s\n", gameState->players[i].name);
