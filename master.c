@@ -20,6 +20,7 @@
 #define DEF_DELAY 200
 #define DEF_TIMEOUT 10
 #define MAX_LENGTH_PATH 100
+#define MAX_LENGTH_NAME 16
 #define MILI_TO_SEC 0.001
 #define MILI_TO_NANO 1000000
 
@@ -31,7 +32,7 @@ int main(int argc, char *argv[]) {
     int height = DEF_HEIGHT;
     int width = DEF_WIDTH;
 
-    char players[MAX_PLAYERS][MAX_LENGTH_PATH];
+    char players[MAX_PLAYERS][MAX_LENGTH_NAME];
     int playingPlayers = 0;
     char view[MAX_LENGTH_PATH];
     view[0] = '\0';
