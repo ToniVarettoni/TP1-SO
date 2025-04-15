@@ -1,13 +1,10 @@
-# Variables
 CC = gcc
-CFLAGS = -Wall -O0 -lrt -lm -std=c99
+CFLAGS = -Wall -O0 -lrt -lm -std=c99 -D_POSIX_C_SOURCE=200809L -g
 SRC_DIR = include
 COMMON_SRCS = $(SRC_DIR)/shared_memory.c $(SRC_DIR)/process_manager.c $(SRC_DIR)/game_utils.c
 
-# Binaries
 BINARIES = MAX view master
 
-# Rules
 all: $(BINARIES)
 
 MAX: maxPlayer.c $(COMMON_SRCS)

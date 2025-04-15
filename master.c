@@ -20,7 +20,8 @@
 #define DEF_DELAY 200
 #define DEF_TIMEOUT 10
 #define MAX_LENGTH_PATH 100
-#define MICRO_TO_MILI 1000
+#define MILI_TO_SEC 0.001
+#define MILI_TO_NANO 1000000
 
 void checkArguments(int height, int width, int playingPlayers);
 void printStart(GameState * gameState, int delay, int timeout, int seed, char * view);
@@ -190,7 +191,10 @@ int main(int argc, char *argv[]) {
                         } else if (processMove(gameState, currentPlayer, move)) {
                             updateMap(gameState, currentPlayer);
                             if (view[0] != '\0'){
-                                usleep(delay * MICRO_TO_MILI);
+                                struct timespec ts;
+                                ts.tv_sec = delay * MILI_TO_SEC;
+                                ts.tv_nsec = delay * MILI_TO_NANO;
+                                nanosleep(&ts, NULL);
                                 sem_post(&syncState->readyToPrint);
                                 sem_wait(&syncState->printDone);
                             }
