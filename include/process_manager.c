@@ -45,6 +45,7 @@ int initPlayer(GameState * gameState, int i){
         
         close(pipefd[0]);
         dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[1]);
 
         char path[MAX_LENGTH_PATH];
         strcpy(path, "./"); 

@@ -240,12 +240,6 @@ int main(int argc, char *argv[]) {
         printf("Player %s (%d) exited (%d) with a score of %d / %d / %d\n", p.name, i, status, p.score, p.validMoves, p.invalidMoves);
     }
 
-    shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * height * width);
-    shm_cleanup(syncState_fd, syncState, sizeof(GameSync));
-
-    shm_unlink("/game_state");
-    shm_unlink("/game_sync");
-
     if(sem_destroy(&syncState->masterSem) == -1) {
         perror("Error destroying masterSem");
         exit(EXIT_FAILURE);
@@ -266,6 +260,12 @@ int main(int argc, char *argv[]) {
         perror("Error destroying print done Sem");
         exit(EXIT_FAILURE);
     }
+
+    shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * height * width);
+    shm_cleanup(syncState_fd, syncState, sizeof(GameSync));
+
+    shm_unlink("/game_state");
+    shm_unlink("/game_sync");
 
     return 0;
 }

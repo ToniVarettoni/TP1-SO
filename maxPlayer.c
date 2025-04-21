@@ -39,25 +39,25 @@ int main(int argc, char * argv[]){
     while (!gameState->isOver)
     {
         sem_wait(&syncState->masterSem);
+        sem_post(&syncState->masterSem);
 
         sem_wait(&syncState->currReadingSem);
         syncState->currReading++;
-        sem_post(&syncState->currReadingSem);
         if (syncState->currReading == 1)
         {
             sem_wait(&syncState->stateSem);
         }
+        sem_post(&syncState->currReadingSem);
         
         if (gameState->players[id].cantMove)
         {
             sem_wait(&syncState->currReadingSem);
             syncState->currReading--;
-            sem_post(&syncState->currReadingSem);
             if (syncState->currReading == 0)
             {
                 sem_post(&syncState->stateSem);
             }
-            sem_post(&syncState->masterSem);
+            sem_post(&syncState->currReadingSem);
             break;
         }
 
@@ -91,13 +91,14 @@ int main(int argc, char * argv[]){
 
         sem_wait(&syncState->currReadingSem);
         syncState->currReading--;
-        sem_post(&syncState->currReadingSem);
         if (syncState->currReading == 0)
         {
             sem_post(&syncState->stateSem);
         }
-        sem_post(&syncState->masterSem);
+        sem_post(&syncState->currReadingSem);
     }
+    shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * h * w);
+    shm_cleanup(syncState_fd, syncState, sizeof(GameSync));
     
     return 0;
 }
