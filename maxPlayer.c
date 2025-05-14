@@ -32,70 +32,64 @@ int main(int argc, char * argv[]){
         }
     }
     
-    int currInvalidMoves = 0;
-    int currValidMoves = 0;
-    int firstMove = 1;
+    int last_sum_valid_invalid = -1;
+    int current_sum_valid_invalid;
     
-    while (!gameState->isOver)
+    while (1)
     {
         sem_wait(&syncState->masterSem);
         sem_post(&syncState->masterSem);
 
-        sem_wait(&syncState->currReadingSem);
-        syncState->currReading++;
-        if (syncState->currReading == 1)
-        {
-            sem_wait(&syncState->stateSem);
-        }
-        sem_post(&syncState->currReadingSem);
         
-        if (gameState->players[id].cantMove)
-        {
+        do{
             sem_wait(&syncState->currReadingSem);
-            syncState->currReading--;
-            if (syncState->currReading == 0)
+            if (syncState->currReading++ == 0)
+            {
+                sem_wait(&syncState->stateSem);
+            }
+            sem_post(&syncState->currReadingSem);
+            
+            if (gameState->players[id].cantMove)
+            {
+                sem_wait(&syncState->currReadingSem);
+                if (syncState->currReading-- == 1)
+                {
+                    sem_post(&syncState->stateSem);
+                }
+                sem_post(&syncState->currReadingSem);
+                break;
+            }
+
+            current_sum_valid_invalid = gameState->players[id].validMoves + gameState->players[id].invalidMoves;
+                    
+            sem_wait(&syncState->currReadingSem);
+            if (syncState->currReading-- == 1)
             {
                 sem_post(&syncState->stateSem);
             }
-            sem_post(&syncState->currReadingSem);
-            break;
-        }
+            sem_post(&syncState->currReadingSem); 
+        }while (current_sum_valid_invalid == last_sum_valid_invalid && !gameState->isOver);
+        last_sum_valid_invalid = current_sum_valid_invalid;
+
+        int max = 0;
+        unsigned char move = 0;
 
         int x = gameState->players[id].x;
         int y = gameState->players[id].y;
-        
-        int max = 0;
-        unsigned char move = 0;
-        
-        if (currInvalidMoves != gameState->players[id].invalidMoves || currValidMoves != gameState->players[id].validMoves || firstMove)
+        for (int i = x - 1; i <= x + 1; i++)
         {
-            firstMove = false;
-            currValidMoves = gameState->players[id].validMoves;
-            currInvalidMoves = gameState->players[id].invalidMoves;
-            for (int i = x - 1; i <= x + 1; i++)
+            for (int j = y - 1; j <= y + 1; j++)
             {
-                for (int j = y - 1; j <= y + 1; j++)
-                {
-                    if (i >= 0 && j >= 0 && i < w && j < h){
-                        if (max < gameState->map[i + w*j])
-                        {
-                            max = gameState->map[i + w*j];
-                            move = getDir(x, y, i, j);
-                        }
+                if (i >= 0 && j >= 0 && i < w && j < h){
+                    if (max < gameState->map[i + w*j])
+                    {
+                        max = gameState->map[i + w*j];
+                        move = getDir(x, y, i, j);
                     }
                 }
-            
             }
-            write(1, &move , sizeof(move));
-        }        
-
-        sem_wait(&syncState->currReadingSem);
-        syncState->currReading--;
-        if (syncState->currReading == 0)
-        {
-            sem_post(&syncState->stateSem);
         }
-        sem_post(&syncState->currReadingSem);
+        write(1, &move , sizeof(move)); 
     }
     shm_cleanup(gameState_fd, gameState, sizeof(GameState) + sizeof(int) * h * w);
     shm_cleanup(syncState_fd, syncState, sizeof(GameSync));
