@@ -34,8 +34,9 @@ int main(int argc, char * argv[]){
     
     int last_sum_valid_invalid = -1;
     int current_sum_valid_invalid;
+    bool cantMove = false;
     
-    while (1)
+    while (!gameState->isOver)
     {
         sem_wait(&syncState->masterSem);
         sem_post(&syncState->masterSem);
@@ -57,6 +58,7 @@ int main(int argc, char * argv[]){
                     sem_post(&syncState->stateSem);
                 }
                 sem_post(&syncState->currReadingSem);
+                cantMove = true;
                 break;
             }
 
@@ -71,6 +73,8 @@ int main(int argc, char * argv[]){
         }while (current_sum_valid_invalid == last_sum_valid_invalid && !gameState->isOver);
         last_sum_valid_invalid = current_sum_valid_invalid;
 
+        if(cantMove) break;
+        
         int max = 0;
         unsigned char move = 0;
 
